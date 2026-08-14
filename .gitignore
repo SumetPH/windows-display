@@ -1,0 +1,9 @@
+**/bin/
+**/obj/
+*.user
+.dotnet-sdk/
+.dotnet-home/
+.nuget-packages/
+.appdata/
+.localappdata/
+dotnet-install.ps1
