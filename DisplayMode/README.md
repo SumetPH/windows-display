@@ -29,6 +29,8 @@ It runs as a single background instance and places a DisplayMode icon in the Win
 - open or reload `profiles.json`;
 - exit the background application.
 
+Both executables and the notification-area icon use the same embedded multi-resolution application icon. After replacing an older build, exit the existing Tray process and launch the new `DisplayMode.Tray.exe`; Windows Explorer may briefly retain its old icon cache.
+
 Double-click the tray icon to open Settings. Settings lets you select the CLI/config paths and edit global shortcuts. Defaults are:
 
 | Shortcut | Profile |
@@ -269,6 +271,21 @@ Custom output path:
 
 ```powershell
 .\publish.ps1 -OutputPath D:\Tools\DisplayMode
+```
+
+Icon source and generated Windows asset:
+
+```text
+assets\displaymode-icon.png
+assets\displaymode.ico
+```
+
+To regenerate the 16, 20, 24, 32, 40, 48, 64, 128, and 256-pixel ICO frames after replacing the PNG source:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\CreateIcon.ps1 `
+  -SourcePng .\assets\displaymode-icon.png `
+  -DestinationIco .\assets\displaymode.ico
 ```
 
 ## Safety behavior

@@ -26,7 +26,7 @@ internal sealed class SettingsForm : Form
         StartPosition = FormStartPosition.CenterScreen;
         MinimumSize = new Size(680, 460);
         Size = new Size(760, 520);
-        Icon = SystemIcons.Application;
+        Icon = AppIcon.Load();
 
         executablePath.Text = settings.DisplayModePath;
         configPath.Text = settings.ConfigPath;

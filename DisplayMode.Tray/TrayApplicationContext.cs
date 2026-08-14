@@ -8,6 +8,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private const string StartupKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
     private const string StartupValue = "DisplayMode.Tray";
     private readonly NotifyIcon notifyIcon;
+    private readonly Icon appIcon = AppIcon.Load();
     private readonly HotKeyManager hotKeys = new();
     private readonly SemaphoreSlim switchLock = new(1, 1);
     private TraySettings settings = TraySettings.Load();
@@ -17,7 +18,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     {
         notifyIcon = new NotifyIcon
         {
-            Icon = SystemIcons.Application,
+            Icon = appIcon,
             Text = "DisplayMode",
             Visible = true
         };
@@ -194,6 +195,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         switchLock.Dispose();
         notifyIcon.Visible = false;
         notifyIcon.Dispose();
+        appIcon.Dispose();
         base.ExitThreadCore();
     }
 }

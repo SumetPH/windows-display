@@ -9,6 +9,7 @@
     <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
     <AssemblyName>DisplayMode</AssemblyName>
     <RootNamespace>DisplayMode</RootNamespace>
+    <ApplicationIcon>..\assets\displaymode.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
     <None Update="profiles.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />

@@ -9,5 +9,6 @@
     <Nullable>enable</Nullable>
     <AssemblyName>DisplayMode.Tray</AssemblyName>
     <RootNamespace>DisplayMode.Tray</RootNamespace>
+    <ApplicationIcon>..\assets\displaymode.ico</ApplicationIcon>
   </PropertyGroup>
 </Project>
