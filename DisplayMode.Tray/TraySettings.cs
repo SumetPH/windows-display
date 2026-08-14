@@ -8,9 +8,9 @@ internal sealed class TraySettings
     public string ConfigPath { get; set; } = Path.Combine(AppContext.BaseDirectory, "profiles.json");
     public List<HotKeyBinding> HotKeys { get; set; } =
     [
-        new() { Profile = "3", Shortcut = "Ctrl+Alt+3" },
-        new() { Profile = "2", Shortcut = "Ctrl+Alt+2" },
-        new() { Profile = "13", Shortcut = "Ctrl+Alt+1" }
+        new() { Profile = "1", Shortcut = "Alt+Shift+1" },
+        new() { Profile = "2", Shortcut = "Alt+Shift+2" },
+        new() { Profile = "3", Shortcut = "Alt+Shift+3" }
     ];
 
     internal static string SettingsPath => Path.Combine(

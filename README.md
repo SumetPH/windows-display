@@ -131,17 +131,21 @@ cache เก็บที่ `%LOCALAPPDATA%\DisplayMode\target-timings.json` แ
 
 ## Build และ publish
 
-Build ทั้ง CLI และ Tray:
+Repository นี้มี .NET SDK แบบ local อยู่ใน `.dotnet-sdk` จึง build ได้แม้เครื่องไม่มี SDK ใน `PATH` ใช้ script เพื่อเตรียม environment ให้อัตโนมัติ:
 
 ```powershell
-dotnet build .\DisplayMode.sln -c Release
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\build.ps1
 ```
 
-สร้าง self-contained release รวมไว้ที่ `artifacts\publish`:
+ต้องการ Debug build ให้เพิ่ม `-Configuration Debug`
+
+สร้าง self-contained release รวมไว้ที่ `artifacts\publish` โดย bypass Execution Policy เฉพาะ process นี้:
 
 ```powershell
-.\publish.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\publish.ps1
 ```
+
+คำสั่งนี้ไม่เปลี่ยน Execution Policy ของเครื่อง หากติดตั้ง .NET 8 SDK ไว้ใน `PATH` แล้วจึงสามารถใช้ `dotnet build ...` แบบสั้นได้
 
 ถ้า Tray กำลังรันอยู่ ให้ Exit ก่อน publish เพราะ Windows จะล็อก `DisplayMode.Tray.exe`
 
@@ -154,6 +158,7 @@ DisplayMode.Tray/        WinForms tray UI, settings, startup และ hotkey
 assets/                  PNG ต้นฉบับและ ICO ของโปรแกรม
 tools/CreateIcon.ps1     สร้าง ICO หลายขนาดจาก PNG
 publish.ps1              publish CLI และ Tray ไปยังโฟลเดอร์เดียว
+build.ps1                restore และ build ทั้งสองโปรเจกต์ด้วย local SDK
 artifacts/publish/       release ที่พร้อมใช้งาน
 ```
 

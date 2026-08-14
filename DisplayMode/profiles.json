@@ -7,19 +7,61 @@
     "portrait": { "match": "GSM5BD2" }
   },
   "profiles": {
-    "3": { "monitors": [
-      { "monitor": "gaming", "width": 3840, "height": 2160, "refreshHz": 120, "rotation": "landscape", "x": 0, "y": 0, "primary": true }
-    ] },
-    "13": { "monitors": [
-      { "monitor": "gaming", "width": 3840, "height": 2160, "refreshHz": 120, "rotation": "landscape", "x": 0, "y": 0, "primary": true },
-      { "monitor": "portrait", "width": 1440, "height": 2560, "refreshHz": 120, "rotation": "portrait", "x": -1440, "y": 0, "primary": false }
-    ] },
-    "2": { "monitors": [
-      { "monitor": "tv", "width": 3840, "height": 2160, "refreshHz": 60, "rotation": "landscape", "x": 0, "y": 0, "primary": true }
-    ] },
-    "prepare-13": { "monitors": [
-      { "monitor": "gaming", "width": 3840, "height": 2160, "refreshHz": 120, "rotation": "landscape", "x": 0, "y": 0, "primary": true },
-      { "monitor": "portrait", "width": 1440, "height": 2560, "refreshHz": 144, "rotation": "portrait", "x": -1440, "y": 0, "primary": false }
-    ] }
+    "1": {
+      "monitors": [
+        {
+          "monitor": "gaming",
+          "width": 3840,
+          "height": 2160,
+          "refreshHz": 120,
+          "rotation": "landscape",
+          "x": 0,
+          "y": 0,
+          "primary": true,
+          "wallpaper": "D:\\Images\\WuWa Wallpaper\\monitor-3.jpg"
+        },
+        {
+          "monitor": "portrait",
+          "width": 1440,
+          "height": 2560,
+          "refreshHz": 120,
+          "rotation": "portrait",
+          "x": -1440,
+          "y": 0,
+          "primary": false,
+          "wallpaper": "D:\\Images\\WuWa Wallpaper\\monitor-1.png"
+        }
+      ]
+    },
+    "2": {
+      "monitors": [
+        {
+          "monitor": "tv",
+          "width": 3840,
+          "height": 2160,
+          "refreshHz": 60,
+          "rotation": "landscape",
+          "x": 0,
+          "y": 0,
+          "primary": true,
+          "wallpaper": "D:\\Images\\WuWa Wallpaper\\monitor-2.jpg"
+        }
+      ]
+    },
+    "3": {
+      "monitors": [
+        {
+          "monitor": "gaming",
+          "width": 3840,
+          "height": 2160,
+          "refreshHz": 120,
+          "rotation": "landscape",
+          "x": 0,
+          "y": 0,
+          "primary": true,
+          "wallpaper": "D:\\Images\\WuWa Wallpaper\\monitor-3.jpg"
+        }
+      ]
+    }
   }
 }
