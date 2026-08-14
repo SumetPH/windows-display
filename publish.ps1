@@ -27,5 +27,5 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 & $dotnet publish $trayProject -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o $OutputPath --no-restore
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-Write-Host "Published DisplayMode.exe, DisplayMode.Tray.exe, and profiles.json to:"
+Write-Host "Published DisplayMode.exe, DisplayMode.App.exe, and profiles.json to:"
 Write-Host $OutputPath

@@ -2,15 +2,15 @@
   "schemaVersion": 1,
   "allowUnmanagedTargets": false,
   "monitors": {
-    "gaming": { "match": "DELA274" },
+    "lg": { "match": "GSM5BD2" },
     "tv": { "match": "HEC002F" },
-    "portrait": { "match": "GSM5BD2" }
+    "dell": { "match": "DELA274" }
   },
   "profiles": {
-    "1": {
+    "Extend": {
       "monitors": [
         {
-          "monitor": "gaming",
+          "monitor": "dell",
           "width": 3840,
           "height": 2160,
           "refreshHz": 120,
@@ -21,7 +21,7 @@
           "wallpaper": "D:\\Images\\WuWa Wallpaper\\monitor-3.jpg"
         },
         {
-          "monitor": "portrait",
+          "monitor": "lg",
           "width": 1440,
           "height": 2560,
           "refreshHz": 120,
@@ -33,7 +33,7 @@
         }
       ]
     },
-    "2": {
+    "TV": {
       "monitors": [
         {
           "monitor": "tv",
@@ -48,10 +48,10 @@
         }
       ]
     },
-    "3": {
+    "Main": {
       "monitors": [
         {
-          "monitor": "gaming",
+          "monitor": "dell",
           "width": 3840,
           "height": 2160,
           "refreshHz": 120,

@@ -14,7 +14,9 @@ internal static class DisplayModeClient
         });
         if (!document.RootElement.TryGetProperty("profiles", out var profiles) || profiles.ValueKind != JsonValueKind.Object)
             throw new InvalidDataException("profiles.json does not contain a profiles object.");
-        return profiles.EnumerateObject().Select(p => p.Name).OrderBy(p => p, StringComparer.OrdinalIgnoreCase).ToArray();
+        // JsonElement preserves object-property order, so the tray menu follows
+        // the order chosen by the user in profiles.json.
+        return profiles.EnumerateObject().Select(p => p.Name).ToArray();
     }
 
     internal static async Task<CommandResult> ApplyAsync(TraySettings settings, string profile)

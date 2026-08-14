@@ -10,7 +10,7 @@ internal static class Program
         using var mutex = new Mutex(true, MutexName, out var createdNew);
         if (!createdNew)
         {
-            MessageBox.Show("DisplayMode Tray is already running.", "DisplayMode",
+            MessageBox.Show("DisplayMode is already running.", "DisplayMode",
                 MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }

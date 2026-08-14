@@ -7,7 +7,7 @@
 | ไฟล์ | หน้าที่ |
 |---|---|
 | `DisplayMode.exe` | ค้นหาจอ ตรวจ config และสลับ profile ผ่าน Windows CCD API |
-| `DisplayMode.Tray.exe` | ทำงานเบื้องหลัง มี tray menu, startup และ global hotkey |
+| `DisplayMode.App.exe` | ทำงานเบื้องหลัง มี tray menu, startup และ global hotkey |
 | `profiles.json` | config ที่โปรแกรมใช้งานจริง |
 | `profiles.example.json` | template สำหรับสร้าง config ใหม่ |
 
@@ -25,15 +25,15 @@
 
 ```powershell
 .\DisplayMode.exe config-check
-.\DisplayMode.exe main-only --dry-run
-.\DisplayMode.exe main-only --validate-only
+.\DisplayMode.exe "Main Only" --dry-run
+.\DisplayMode.exe "Main Only" --validate-only
 ```
 
 เมื่อผลถูกต้องจึง apply หรือเปิด Tray:
 
 ```powershell
-.\DisplayMode.exe main-only
-.\DisplayMode.Tray.exe
+.\DisplayMode.exe "Main Only"
+.\DisplayMode.App.exe
 ```
 
 ## profiles.json
@@ -49,7 +49,7 @@
     "side": { "match": "GSM5BD2" }
   },
   "profiles": {
-    "work": {
+    "Work": {
       "monitors": [
         {
           "monitor": "main",
@@ -107,7 +107,7 @@
 
 ## Tray, startup และ hotkey
 
-เปิด `DisplayMode.Tray.exe` แล้วคลิกขวาที่ icon เพื่อเลือก profile, reload config, เปิด Settings หรือเปิด startup
+เปิด `DisplayMode.App.exe` แล้วคลิกขวาที่ icon เพื่อเลือก profile, reload config, เปิด Settings หรือเปิด startup
 
 ดับเบิลคลิก icon เพื่อแก้ path และ global hotkey เช่น `Ctrl+Alt+3` หรือ `Win+Alt+G` hotkey ต้องมี modifier อย่างน้อยหนึ่งตัว การสลับที่เริ่มจาก Tray จะเรียก CLI แบบซ่อน console และป้องกันการสลับซ้อนกัน
 
@@ -147,7 +147,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\publish.ps1
 
 คำสั่งนี้ไม่เปลี่ยน Execution Policy ของเครื่อง หากติดตั้ง .NET 8 SDK ไว้ใน `PATH` แล้วจึงสามารถใช้ `dotnet build ...` แบบสั้นได้
 
-ถ้า Tray กำลังรันอยู่ ให้ Exit ก่อน publish เพราะ Windows จะล็อก `DisplayMode.Tray.exe`
+ถ้าแอปกำลังรันอยู่ ให้ Exit ก่อน publish เพราะ Windows จะล็อก `DisplayMode.App.exe`
 
 ## โครงสร้างโปรเจกต์
 

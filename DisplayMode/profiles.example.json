@@ -11,7 +11,7 @@
   },
 
   "profiles": {
-    "main-only": {
+    "Main Only": {
       "monitors": [
         {
           "monitor": "main",
@@ -27,7 +27,7 @@
       ]
     },
 
-    "tv-only": {
+    "TV Only": {
       "monitors": [
         {
           "monitor": "tv",
@@ -43,7 +43,7 @@
       ]
     },
 
-    "dual-work": {
+    "Dual Work": {
       "monitors": [
         {
           "monitor": "main",

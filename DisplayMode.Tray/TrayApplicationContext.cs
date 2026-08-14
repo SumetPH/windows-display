@@ -6,7 +6,8 @@ namespace DisplayMode.Tray;
 internal sealed class TrayApplicationContext : ApplicationContext
 {
     private const string StartupKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
-    private const string StartupValue = "DisplayMode.Tray";
+    private const string StartupValue = "DisplayMode";
+    private const string LegacyStartupValue = "DisplayMode.Tray";
     private readonly NotifyIcon notifyIcon;
     private readonly Icon appIcon = AppIcon.Load();
     private readonly HotKeyManager hotKeys = new();
@@ -58,9 +59,10 @@ internal sealed class TrayApplicationContext : ApplicationContext
         hotKeys.Clear();
         foreach (var binding in settings.HotKeys)
         {
-            if (!profiles.Contains(binding.Profile, StringComparer.OrdinalIgnoreCase))
+            var profile = profiles.FirstOrDefault(profile =>
+                profile.Equals(binding.Profile, StringComparison.OrdinalIgnoreCase));
+            if (profile is null)
                 throw new InvalidDataException($"Hotkey profile '{binding.Profile}' does not exist.");
-            var profile = binding.Profile;
             hotKeys.Register(binding.Shortcut, () => _ = ApplyProfileAsync(profile));
         }
     }
@@ -115,7 +117,9 @@ internal sealed class TrayApplicationContext : ApplicationContext
             notifyIcon.Text = $"DisplayMode - applying {profile}";
             var result = await DisplayModeClient.ApplyAsync(settings, profile);
             if (result.ExitCode == 0)
-                Notify($"Profile '{profile}' applied successfully.", ToolTipIcon.Info);
+                // With no stock status glyph, Windows uses the application's
+                // tray icon for a successful display-mode notification.
+                Notify($"Profile '{profile}' applied successfully.", ToolTipIcon.None);
             else
             {
                 Notify($"Profile '{profile}' failed (exit {result.ExitCode}).", ToolTipIcon.Error);
@@ -167,16 +171,22 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private static bool IsStartupEnabled()
     {
         using var key = Registry.CurrentUser.OpenSubKey(StartupKey);
-        return key?.GetValue(StartupValue) is string;
+        return key?.GetValue(StartupValue) is string || key?.GetValue(LegacyStartupValue) is string;
     }
 
     private static void SetStartup(bool enabled)
     {
         using var key = Registry.CurrentUser.CreateSubKey(StartupKey);
         if (enabled)
+        {
             key.SetValue(StartupValue, $"\"{Application.ExecutablePath}\"");
+            key.DeleteValue(LegacyStartupValue, throwOnMissingValue: false);
+        }
         else
+        {
             key.DeleteValue(StartupValue, throwOnMissingValue: false);
+            key.DeleteValue(LegacyStartupValue, throwOnMissingValue: false);
+        }
     }
 
     private void Notify(string message, ToolTipIcon icon)

@@ -7,8 +7,10 @@
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <AssemblyName>DisplayMode.Tray</AssemblyName>
+    <AssemblyName>DisplayMode.App</AssemblyName>
     <RootNamespace>DisplayMode.Tray</RootNamespace>
+    <AssemblyTitle>DisplayMode</AssemblyTitle>
+    <Product>DisplayMode</Product>
     <ApplicationIcon>..\assets\displaymode.ico</ApplicationIcon>
   </PropertyGroup>
 </Project>

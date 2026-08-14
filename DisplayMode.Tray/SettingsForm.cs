@@ -12,7 +12,7 @@ internal sealed class SettingsForm : Form
         AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
         RowHeadersVisible = false
     };
-    private readonly CheckBox startup = new() { Text = "Run DisplayMode Tray when I sign in", AutoSize = true };
+    private readonly CheckBox startup = new() { Text = "Run DisplayMode when I sign in", AutoSize = true };
     private readonly IReadOnlyList<string> profiles;
 
     internal TraySettings ResultSettings { get; private set; }
@@ -22,7 +22,7 @@ internal sealed class SettingsForm : Form
     {
         this.profiles = profiles;
         ResultSettings = settings;
-        Text = "DisplayMode Tray Settings";
+        Text = "DisplayMode Settings";
         StartPosition = FormStartPosition.CenterScreen;
         MinimumSize = new Size(680, 460);
         Size = new Size(760, 520);
@@ -33,12 +33,26 @@ internal sealed class SettingsForm : Form
         startup.Checked = startupEnabled;
 
         var profileColumn = new DataGridViewComboBoxColumn { HeaderText = "Profile", FlatStyle = FlatStyle.Flat };
-        profileColumn.Items.AddRange(profiles.Concat(settings.HotKeys.Select(h => h.Profile))
-            .Distinct(StringComparer.OrdinalIgnoreCase).Cast<object>().ToArray());
+        var profileItems = profiles.Concat(settings.HotKeys.Select(binding =>
+                profiles.FirstOrDefault(profile =>
+                    profile.Equals(binding.Profile, StringComparison.OrdinalIgnoreCase)) ?? binding.Profile))
+            .Distinct(StringComparer.Ordinal)
+            .Cast<object>()
+            .ToArray();
+        profileColumn.Items.AddRange(profileItems);
         grid.Columns.Add(profileColumn);
         grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Global shortcut (example: Ctrl+Alt+3)" });
         foreach (var binding in settings.HotKeys)
-            grid.Rows.Add(binding.Profile, binding.Shortcut);
+        {
+            var configuredProfile = profiles.FirstOrDefault(profile =>
+                profile.Equals(binding.Profile, StringComparison.OrdinalIgnoreCase));
+            grid.Rows.Add(configuredProfile ?? binding.Profile, binding.Shortcut);
+        }
+        grid.DataError += (_, eventArgs) =>
+        {
+            if (eventArgs.Exception is ArgumentException)
+                eventArgs.ThrowException = false;
+        };
 
         var layout = new TableLayoutPanel
         {
@@ -117,7 +131,9 @@ internal sealed class SettingsForm : Form
                     throw new InvalidDataException(error);
                 if (!shortcuts.Add(shortcut))
                     throw new InvalidDataException($"Shortcut '{shortcut}' is assigned more than once.");
-                bindings.Add(new HotKeyBinding { Profile = profile, Shortcut = shortcut });
+                var configuredProfile = profiles.First(configured =>
+                    configured.Equals(profile, StringComparison.OrdinalIgnoreCase));
+                bindings.Add(new HotKeyBinding { Profile = configuredProfile, Shortcut = shortcut });
             }
 
             ResultSettings = new TraySettings
