@@ -1,107 +1,226 @@
 # DisplayMode
 
-`DisplayMode` is a small Windows 11 x64 command-line utility that switches one specific three-monitor system between three display topologies. It uses the native CCD APIs (`QueryDisplayConfig`, `DisplayConfigGetDeviceInfo`, and `SetDisplayConfig`) and applies each topology as one operation.
+`DisplayMode` is a Windows 11 x64 display-topology switcher built on the native CCD APIs. Monitor identities and display profiles are read from `profiles.json`, so ports, positions, resolutions, refresh rates, rotations, and profile names can be changed without recompiling.
 
-It deliberately does **not** use `DISPLAY1`, `DISPLAY2`, or `DISPLAY3`: Windows can renumber those names after a topology change. Physical targets are rediscovered before every switch by matching these stable identifiers in the CCD monitor device path (or friendly name):
+The program deliberately does not identify monitors through `DISPLAY1`, `DISPLAY2`, connector order, adapter LUID, source ID, or target ID. It rediscovers every CCD path before each operation and matches persistent text in `DISPLAYCONFIG_TARGET_DEVICE_NAME`.
 
-- `DELA274`
-- `HEC002F`
-- `GSM5BD2`
+## Files and requirements
 
-If all three targets cannot be identified uniquely, no change is attempted.
+- Windows 11 build 22000 or later
+- Interactive local console session
+- `DisplayMode.exe`
+- `profiles.json` beside the executable, unless `--config` specifies another file
 
-## Requirements
-
-- Windows 11 (build 22000 or later)
-- An interactive local console session (CCD cannot modify a disconnected/remote desktop)
-- x64
+The self-contained published executable does not require .NET to be installed.
 
 ## Commands
+
+Apply a profile directly or with the explicit `apply` command:
 
 ```powershell
 DisplayMode.exe 3
 DisplayMode.exe 13
-DisplayMode.exe 2
+DisplayMode.exe apply 2
+DisplayMode.exe apply work
+```
+
+Inspection and configuration commands:
+
+```powershell
 DisplayMode.exe list
 DisplayMode.exe status
-DisplayMode.exe capture
-DisplayMode.exe prepare-13
-```
-
-`list` shows every connected CCD target, including inactive monitors. `status` shows only active paths. Neither command modifies the display configuration.
-
-Add `--dry-run` to a mode to discover, check identities, select paths/modes, and print the proposed configuration without validating or applying it:
-
-```powershell
-DisplayMode.exe 13 --dry-run
-```
-
-Use `--validate-only` to call `SetDisplayConfig` with `SDC_VALIDATE` but never apply the result:
-
-```powershell
-DisplayMode.exe 13 --validate-only --verbose
-```
-
-`capture` saves complete native CCD target timings for known monitors that are currently active at their requested refresh rates. This is useful because `QDC_ALL_PATHS` deliberately omits mode data for inactive paths. The cache is stored at `%LOCALAPPDATA%\DisplayMode\target-timings.json` and is never synthesized from partial timing data.
-
-For first-time GSM5BD2 calibration, `prepare-13` safely enables the requested two-monitor layout using GSM5BD2's complete native preferred timing (approximately 144 Hz):
-
-```powershell
-DisplayMode.exe prepare-13
-```
-
-Then change GSM5BD2 to 120 Hz once in Windows Display Settings or NVIDIA Control Panel and run:
-
-```powershell
+DisplayMode.exe profiles
+DisplayMode.exe config-check
+DisplayMode.exe config-path
 DisplayMode.exe capture --verbose
 ```
 
-Add `--verbose` for selected CCD path indexes, native structure sizes, and full exception details.
+Safe testing options:
 
-## Topologies
+```powershell
+DisplayMode.exe apply 13 --dry-run
+DisplayMode.exe apply 13 --validate-only --verbose
+```
 
-| Mode | Active displays | Layout and mode |
-|---|---|---|
-| `3` | DELA274 | Primary at `(0,0)`, 3840x2160, 120 Hz, landscape |
-| `13` | GSM5BD2 + DELA274 | GSM5BD2 at `(-1440,0)`, 1440x2560, 120 Hz, portrait; DELA274 primary at `(0,0)`, 3840x2160, 120 Hz |
-| `2` | HEC002F | Primary at `(0,0)`, 3840x2160, 60 Hz, landscape |
+- `--dry-run` builds and prints the proposal without calling `SetDisplayConfig`.
+- `--validate-only` calls `SetDisplayConfig` with `SDC_VALIDATE` but does not apply it.
+- `--verbose` prints native structure and path details.
+- `--config <path>` uses another configuration file with any command.
 
-`prepare-13` is a calibration topology, not one of the three normal modes. It has the same layout as mode `13` but temporarily uses GSM5BD2's preferred approximately-144-Hz native timing so the panel can be activated safely before its 120-Hz timing is captured.
+Example:
 
-CCD defines the source surface at `(0,0)` as primary; there is no generic CCD `Primary` Boolean flag.
+```powershell
+DisplayMode.exe config-check --config D:\DisplayConfigs\office.json
+DisplayMode.exe apply office --config D:\DisplayConfigs\office.json --validate-only
+```
 
-## Build
+## Editing `profiles.json`
 
-From the repository root:
+The supplied file starts with:
+
+```json
+{
+  "schemaVersion": 1,
+  "allowUnmanagedTargets": false,
+  "monitors": {
+    "gaming":  { "match": "DELA274" },
+    "tv":      { "match": "HEC002F" },
+    "portrait": { "match": "GSM5BD2" }
+  },
+  "profiles": {
+    "13": {
+      "monitors": [
+        {
+          "monitor": "gaming",
+          "width": 3840,
+          "height": 2160,
+          "refreshHz": 120,
+          "rotation": "landscape",
+          "x": 0,
+          "y": 0,
+          "primary": true
+        },
+        {
+          "monitor": "portrait",
+          "width": 1440,
+          "height": 2560,
+          "refreshHz": 120,
+          "rotation": "portrait",
+          "x": -1440,
+          "y": 0,
+          "primary": false
+        }
+      ]
+    }
+  }
+}
+```
+
+### Monitor definitions
+
+The object key is a convenient alias used by profiles. `match` is a case-insensitive substring of the CCD monitor device path or friendly name.
+
+```json
+"monitors": {
+  "main": { "match": "DELA274" },
+  "left": { "match": "GSM5BD2" }
+}
+```
+
+Moving a cable to another GPU port normally requires no configuration change: adapter, source, and target IDs are rediscovered. If the new link exposes different valid timings or bandwidth, validation can reject the old timing safely; activate the desired mode once and run `capture` again.
+
+Each match string must identify exactly one physical target. Two identical monitor models need a more specific device-path substring or another persistent instance identifier.
+
+When `allowUnmanagedTargets` is `false` (recommended), an apply operation fails if a connected monitor is not declared. This prevents an exclusive `SetDisplayConfig` call from unexpectedly disabling an unknown display. Set it to `true` only when disabling undeclared displays is intentional.
+
+### Profile fields
+
+| Field | Meaning |
+|---|---|
+| `monitor` | Alias from the root `monitors` object |
+| `width`, `height` | Effective desktop resolution after rotation |
+| `refreshHz` | Requested refresh; decimals such as `59.94` are accepted |
+| `rotation` | `landscape`, `portrait`, `landscape-inverted`, or `portrait-inverted` |
+| `x`, `y` | Upper-left desktop coordinate in physical pixels |
+| `primary` | Exactly one active monitor must be `true` |
+
+The primary monitor must be at `(0,0)`. Monitor rectangles cannot overlap or have gaps; every rectangle must touch the rest of the layout along an edge. `config-check` verifies these rules without querying or modifying displays.
+
+Example profile with a portrait monitor to the right:
+
+```json
+"work": {
+  "monitors": [
+    { "monitor": "gaming", "width": 3840, "height": 2160, "refreshHz": 120, "rotation": "landscape", "x": 0, "y": 0, "primary": true },
+    { "monitor": "portrait", "width": 1440, "height": 2560, "refreshHz": 120, "rotation": "portrait", "x": 3840, "y": 0, "primary": false }
+  ]
+}
+```
+
+After editing:
+
+```powershell
+DisplayMode.exe config-check
+DisplayMode.exe apply work --dry-run
+DisplayMode.exe apply work --validate-only --verbose
+DisplayMode.exe apply work
+```
+
+## Native timing cache
+
+`QDC_ALL_PATHS` does not return mode information for inactive paths. Preferred modes can be queried separately, but non-preferred modes such as 120 Hz may require their complete native signal timing to be captured while active.
+
+The cache is stored at:
+
+```text
+%LOCALAPPDATA%\DisplayMode\target-timings.json
+```
+
+It supports multiple resolution/refresh combinations for every monitor. It is keyed by persistent monitor match, effective resolution, and actual refresh rational—not by port, source ID, or target ID.
+
+To add another mode:
+
+1. Activate the monitor and select the desired resolution/refresh once through Windows or NVIDIA Control Panel.
+2. Run `DisplayMode.exe capture --verbose`.
+3. Add or update the profile in `profiles.json`.
+4. Run `config-check`, `--dry-run`, then `--validate-only`.
+
+For the supplied GSM5BD2 setup, `prepare-13` activates the two-monitor layout with its preferred approximately-144-Hz timing. Change it to 120 Hz once and capture:
+
+```powershell
+DisplayMode.exe prepare-13
+# Select 120 Hz for GSM5BD2 in Windows/NVIDIA settings.
+DisplayMode.exe capture --verbose
+DisplayMode.exe 13 --validate-only
+DisplayMode.exe 13
+```
+
+The cache stores complete timings reported by Windows. It never invents pixel clocks or blanking values. Every cached timing is still passed through `SDC_VALIDATE` after a port or configuration change.
+
+## Built-in configuration supplied in `profiles.json`
+
+| Profile | Active displays |
+|---|---|
+| `3` | DELA274 at 3840x2160 120 Hz, primary |
+| `13` | DELA274 primary plus GSM5BD2 portrait at 1440x2560 120 Hz |
+| `2` | HEC002F at 3840x2160 60 Hz, primary |
+| `prepare-13` | Calibration layout using GSM5BD2's approximately-144-Hz preferred timing |
+
+## Build and publish
 
 ```powershell
 dotnet build .\DisplayMode\DisplayMode.csproj -c Release
 ```
 
-## Publish a standalone executable
-
 ```powershell
 dotnet publish .\DisplayMode\DisplayMode.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
 ```
 
-The standalone executable is written below `DisplayMode\bin\Release\net8.0-windows\win-x64\publish` and does not require a preinstalled .NET runtime.
+Output:
 
-## How mode selection works
+```text
+DisplayMode\bin\Release\net8.0-windows\win-x64\publish\
+  DisplayMode.exe
+  profiles.json
+```
 
-The utility queries `QDC_ALL_PATHS`, retries the buffer-size race documented by Microsoft, groups duplicate possible paths by persistent adapter LUID and target ID, and resolves monitor names with `DISPLAYCONFIG_TARGET_DEVICE_NAME`. It never selects a monitor by source ID, target ID, connector order, or GDI display number.
+## Safety behavior
 
-For each active target it supplies an explicit source size, desktop position, rotation, and refresh rational. CCD source dimensions are pre-rotation, so GSM5BD2 uses a 2560x1440 source rotated 90 degrees to produce the requested effective 1440x2560 desktop extent. If the target is already running at the requested signal size and refresh, its complete native target timing is reused. When an inactive target has no timing in the query (normal for `QDC_ALL_PATHS`), its target mode index remains unspecified so CCD best-mode logic can select a valid signal timing; the requested path refresh is still supplied. An exact observed fractional rational such as `120000/1001` is retained instead of being replaced with `120/1`.
+- All configured monitors must match uniquely unless the configuration explicitly permits unmanaged targets.
+- At least one active monitor and exactly one primary monitor are required.
+- The complete topology is submitted in one `SetDisplayConfig` operation.
+- Validation occurs before apply.
+- A failed validation leaves the current topology unchanged.
+- The source at `(0,0)` is primary; CCD has no generic `Primary=true` flag.
+- Portrait source dimensions are converted to CCD's pre-rotation coordinate convention.
 
-The proposal is first passed to `SetDisplayConfig` with `SDC_VALIDATE | SDC_USE_SUPPLIED_DISPLAY_CONFIG`. NVIDIA can reject a caller-supplied source mode when a previously inactive target has no complete target timing. The utility never invents signal timing: it uses a current mode, the monitor's preferred mode when that exactly matches, or a previously captured native mode. If none is available and validation fails, it exits without changing the displays and explains how to capture the requested mode.
-
-The native layouts and flag behavior follow Microsoft's documentation for [QueryDisplayConfig](https://learn.microsoft.com/windows/win32/api/winuser/nf-winuser-querydisplayconfig), [SetDisplayConfig](https://learn.microsoft.com/windows/win32/api/winuser/nf-winuser-setdisplayconfig), and [DISPLAYCONFIG_TARGET_DEVICE_NAME](https://learn.microsoft.com/windows/win32/api/wingdi/ns-wingdi-displayconfig_target_device_name). Expected x64 structure sizes are checked at startup before any CCD call.
+The native layouts and flags follow Microsoft's documentation for [QueryDisplayConfig](https://learn.microsoft.com/windows/win32/api/winuser/nf-winuser-querydisplayconfig), [SetDisplayConfig](https://learn.microsoft.com/windows/win32/api/winuser/nf-winuser-setdisplayconfig), and [DISPLAYCONFIG_TARGET_DEVICE_NAME](https://learn.microsoft.com/windows/win32/api/wingdi/ns-wingdi-displayconfig_target_device_name).
 
 ## Troubleshooting
 
-- Run `DisplayMode.exe list --verbose` and confirm each hardware ID appears exactly once in its device path or friendly name.
-- Run the desired mode with `--dry-run` before the first real switch.
-- If mode `13` reports that GSM5BD2 has no complete native timing, run `DisplayMode.exe prepare-13`, change GSM5BD2 to 120 Hz in Windows/NVIDIA settings, then run `DisplayMode.exe capture --verbose`. On the tested machine its preferred timing was approximately 144 Hz (`143933/1000`), which cannot safely be converted into a 120 Hz signal timing by arithmetic.
-- `ERROR_ACCESS_DENIED` usually means the program is not running in the interactive console session (for example, it is running through Remote Desktop or a service).
-- `ERROR_BAD_CONFIGURATION` means the display driver could not produce the exact supplied layout/mode combination. Confirm the requested resolutions and refresh rates are currently exposed by the NVIDIA driver.
-- If a monitor is identified but reported unavailable, check its cable, input selection, power state, and NVIDIA Control Panel configuration. The utility fails closed rather than forcing an unavailable target.
-- NVIDIA driver behavior and the three real panels cannot be exercised by an ordinary build/test environment. Verify the full `13 -> 3 -> 2 -> 13 -> 2 -> 3` sequence locally, first using `--dry-run` and then with real switches.
+- `config-check` reports JSON, alias, primary, overlap, gap, and rotation errors.
+- `list --verbose` shows persistent device paths and current CCD targets.
+- If a requested non-preferred timing is missing, activate it once and run `capture --verbose`.
+- `ERROR_ACCESS_DENIED` usually means the process is not running in the interactive local console session.
+- `ERROR_BAD_CONFIGURATION` means the driver cannot satisfy the requested path/mode combination.
+- After moving ports, run `list`, `config-check`, and `--validate-only` before the first apply.

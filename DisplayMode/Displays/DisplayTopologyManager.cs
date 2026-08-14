@@ -3,7 +3,7 @@ using DisplayMode.Native;
 
 namespace DisplayMode.Displays;
 
-internal sealed class DisplayTopologyManager(bool verbose)
+internal sealed class DisplayTopologyManager(bool verbose, DisplayModeConfiguration configuration)
 {
     private DisplaySnapshot? lastSnapshot;
     private readonly TargetTimingStore timingStore = CreateTimingStore(verbose);
@@ -18,7 +18,7 @@ internal sealed class DisplayTopologyManager(bool verbose)
     internal DisplaySnapshot Discover()
     {
         Console.WriteLine("Discovering display paths...");
-        var snapshot = DisplayDiscovery.QueryAllPaths(verbose);
+        var snapshot = DisplayDiscovery.QueryAllPaths(verbose, configuration.Monitors.Values.Select(m => m.Match));
         lastSnapshot = snapshot;
         Console.WriteLine();
         return snapshot;
@@ -29,8 +29,9 @@ internal sealed class DisplayTopologyManager(bool verbose)
         result = new(StringComparer.OrdinalIgnoreCase);
         var safe = true;
 
-        foreach (var id in DisplayProfile.KnownHardwareIds)
+        foreach (var definition in configuration.Monitors.Values)
         {
+            var id = definition.Match;
             var rawMatches = snapshot.Monitors.Where(m =>
                 m.DevicePath.Contains(id, StringComparison.OrdinalIgnoreCase) ||
                 m.FriendlyName.Contains(id, StringComparison.OrdinalIgnoreCase)).ToList();
@@ -45,6 +46,16 @@ internal sealed class DisplayTopologyManager(bool verbose)
             else
             {
                 result[id] = rawMatches[0];
+            }
+        }
+
+        if (!configuration.AllowUnmanagedTargets)
+        {
+            var unmanaged = snapshot.Monitors.Where(m => m.HardwareId is null).ToList();
+            if (unmanaged.Count > 0)
+            {
+                Console.Error.WriteLine($"ERROR: Found {unmanaged.Count} connected monitor target(s) not declared in profiles.json; refusing an exclusive topology change.");
+                safe = false;
             }
         }
 
@@ -114,7 +125,7 @@ internal sealed class DisplayTopologyManager(bool verbose)
             var timing = FindExactObservedTiming(monitor, requested);
             var rate = FindObservedRefresh(monitor, requested.RefreshHz)
                        ?? timing?.TargetVideoSignalInfo.VSyncFreq
-                       ?? new DisplayConfigRational { Numerator = requested.RefreshHz, Denominator = 1 };
+                       ?? RationalFromHertz(requested.RefreshHz);
 
             if (timing.HasValue)
             {
@@ -152,7 +163,7 @@ internal sealed class DisplayTopologyManager(bool verbose)
     {
         var captured = timingStore.Capture(snapshot);
         Console.WriteLine(captured > 0
-            ? $"Captured {captured} requested native target timing(s) to {timingStore.CachePath}."
+            ? $"Captured {captured} active native target timing(s) to {timingStore.CachePath}."
             : captured == 0
                 ? "No new timings captured. A known monitor must be active at its requested resolution and refresh rate."
                 : "Native timing was found, but the timing cache could not be saved.");
@@ -308,7 +319,7 @@ internal sealed class DisplayTopologyManager(bool verbose)
         return timingStore.Find(profile);
     }
 
-    private static DisplayConfigRational? FindObservedRefresh(MonitorInfo monitor, uint desiredHz)
+    private static DisplayConfigRational? FindObservedRefresh(MonitorInfo monitor, double desiredHz)
     {
         if (monitor.ActivePath is { } path && Near(path.TargetInfo.RefreshRate.Hertz, desiredHz))
             return path.TargetInfo.RefreshRate;
@@ -317,7 +328,22 @@ internal sealed class DisplayTopologyManager(bool verbose)
         return null;
     }
 
-    private static bool Near(double actual, uint desired) => actual > 0 && Math.Abs(actual - desired) <= 0.5;
+    private static bool Near(double actual, double desired) => actual > 0 && Math.Abs(actual - desired) <= 0.5;
+
+    private static DisplayConfigRational RationalFromHertz(double hertz)
+    {
+        const uint denominator = 1000;
+        var numerator = checked((uint)Math.Round(hertz * denominator));
+        var divisor = GreatestCommonDivisor(numerator, denominator);
+        return new DisplayConfigRational { Numerator = numerator / divisor, Denominator = denominator / divisor };
+    }
+
+    private static uint GreatestCommonDivisor(uint a, uint b)
+    {
+        while (b != 0)
+            (a, b) = (b, a % b);
+        return a;
+    }
 
     private static DisplayConfigModeInfo[]? ModesOrNull(DisplayConfigModeInfo[] modes) =>
         modes.Length == 0 ? null : modes;
@@ -343,12 +369,13 @@ internal sealed class DisplayTopologyManager(bool verbose)
             var orientation = RotationText(p.Rotation);
             var primary = p.Primary ? " PRIMARY" : string.Empty;
             var timing = proposed.ReusedTargetTimings.Contains(p.HardwareId) ? ", complete native timing supplied" : ", target timing selected by CCD";
-            Console.WriteLine($"  {p.HardwareId} {p.Width}x{p.Height} @{proposed.RefreshRates[p.HardwareId]} {orientation} ({p.X},{p.Y}){primary}{timing}");
+            Console.WriteLine($"  {p.Alias} ({p.HardwareId}) {p.Width}x{p.Height} @{proposed.RefreshRates[p.HardwareId]} {orientation} ({p.X},{p.Y}){primary}{timing}");
         }
         Console.WriteLine();
         Console.WriteLine("INACTIVE:");
-        foreach (var id in DisplayProfile.KnownHardwareIds.Except(proposed.Profiles.Select(p => p.HardwareId), StringComparer.OrdinalIgnoreCase))
-            Console.WriteLine($"  {id}");
+        foreach (var definition in configuration.Monitors.Values.Where(m =>
+                     !proposed.Profiles.Any(p => p.HardwareId.Equals(m.Match, StringComparison.OrdinalIgnoreCase))))
+            Console.WriteLine($"  {definition.Alias} ({definition.Match})");
         Console.WriteLine();
 
         if (verbose)

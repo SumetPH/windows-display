@@ -10,4 +10,7 @@
     <AssemblyName>DisplayMode</AssemblyName>
     <RootNamespace>DisplayMode</RootNamespace>
   </PropertyGroup>
+  <ItemGroup>
+    <None Update="profiles.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

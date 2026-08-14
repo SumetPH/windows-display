@@ -8,75 +8,68 @@ internal static class Program
 {
     private static int Main(string[] args)
     {
-        var verbose = args.Any(a => a.Equals("--verbose", StringComparison.OrdinalIgnoreCase));
-        var dryRun = args.Any(a => a.Equals("--dry-run", StringComparison.OrdinalIgnoreCase));
-        var validateOnly = args.Any(a => a.Equals("--validate-only", StringComparison.OrdinalIgnoreCase));
-        var positional = args.Where(a => !a.StartsWith("--", StringComparison.Ordinal)).ToArray();
-
-        if (args.Any(a => a.StartsWith("--", StringComparison.Ordinal) &&
-                          !a.Equals("--verbose", StringComparison.OrdinalIgnoreCase) &&
-                          !a.Equals("--dry-run", StringComparison.OrdinalIgnoreCase) &&
-                          !a.Equals("--validate-only", StringComparison.OrdinalIgnoreCase)) || positional.Length != 1 ||
-            (dryRun && validateOnly))
-        {
-            PrintUsage();
-            return 2;
-        }
-
-        if (!OperatingSystem.IsWindowsVersionAtLeast(10, 0, 22000))
-        {
-            Console.Error.WriteLine("DisplayMode requires Windows 11 (build 22000 or later).");
-            return 1;
-        }
-
-        var command = positional[0];
-        if ((dryRun || validateOnly) && (command.Equals("list", StringComparison.OrdinalIgnoreCase) ||
-                       command.Equals("status", StringComparison.OrdinalIgnoreCase) ||
-                       command.Equals("capture", StringComparison.OrdinalIgnoreCase)))
-        {
-            Console.Error.WriteLine("--dry-run and --validate-only are only valid with modes 2, 3, or 13.");
-            return 2;
-        }
-
         try
         {
+            var parsed = ParseArguments(args);
+            if (parsed is null)
+                return 2;
+
+            var configuration = ConfigurationLoader.Load(parsed.ConfigPath);
+            if (parsed.Command.Equals("config-path", StringComparison.OrdinalIgnoreCase))
+            {
+                Console.WriteLine(configuration.Path);
+                return 0;
+            }
+            if (parsed.Command.Equals("config-check", StringComparison.OrdinalIgnoreCase))
+            {
+                PrintConfiguration(configuration);
+                Console.WriteLine("Configuration is valid.");
+                return 0;
+            }
+            if (parsed.Command.Equals("profiles", StringComparison.OrdinalIgnoreCase))
+            {
+                PrintConfiguration(configuration);
+                return 0;
+            }
+
+            if (!OperatingSystem.IsWindowsVersionAtLeast(10, 0, 22000))
+                throw new PlatformNotSupportedException("DisplayMode requires Windows 11 (build 22000 or later).");
+
             DisplayTopologyManager.ValidateInteropLayout();
-            var manager = new DisplayTopologyManager(verbose);
-            if (verbose)
+            var manager = new DisplayTopologyManager(parsed.Verbose, configuration);
+            if (parsed.Verbose)
                 DisplayTopologyManager.PrintInteropSizes();
 
             var snapshot = manager.Discover();
-            if (command.Equals("list", StringComparison.OrdinalIgnoreCase))
+            if (parsed.Command.Equals("list", StringComparison.OrdinalIgnoreCase))
             {
                 manager.PrintMonitors(snapshot, activeOnly: false);
                 return 0;
             }
-
-            if (command.Equals("status", StringComparison.OrdinalIgnoreCase))
+            if (parsed.Command.Equals("status", StringComparison.OrdinalIgnoreCase))
             {
                 manager.PrintMonitors(snapshot, activeOnly: true);
                 return 0;
             }
-
-            if (command.Equals("capture", StringComparison.OrdinalIgnoreCase))
+            if (parsed.Command.Equals("capture", StringComparison.OrdinalIgnoreCase))
                 return manager.CaptureTimings(snapshot);
 
-            if (!DisplayProfile.Profiles.TryGetValue(command, out var profile))
+            var profileName = parsed.Command.Equals("apply", StringComparison.OrdinalIgnoreCase)
+                ? parsed.ProfileName!
+                : parsed.Command;
+            if (!configuration.Profiles.TryGetValue(profileName, out var profile))
             {
-                Console.Error.WriteLine($"Unknown mode or command: {command}");
-                PrintUsage();
+                Console.Error.WriteLine($"Unknown profile: {profileName}");
+                Console.Error.WriteLine("Run 'DisplayMode.exe profiles' to list configured profiles.");
                 return 2;
             }
 
-            // All three known targets are required before changing anything. This also makes
-            // an unexpected cable/device change fail closed instead of disabling the wrong target.
             if (!manager.TryResolveKnownMonitors(snapshot, out var monitors))
                 return 1;
-
-            if (!dryRun && !validateOnly)
+            if (!parsed.DryRun && !parsed.ValidateOnly)
                 manager.CacheObservedTimings(snapshot);
             var proposal = manager.Build(profile, snapshot, monitors);
-            return manager.ValidateAndApply(profile.Name, proposal, dryRun, validateOnly);
+            return manager.ValidateAndApply(profile.Name, proposal, parsed.DryRun, parsed.ValidateOnly);
         }
         catch (Win32Exception ex)
         {
@@ -88,21 +81,88 @@ internal static class Program
         {
             Console.Error.WriteLine($"ERROR: {ex.Message}");
             Console.Error.WriteLine("No further display operation was attempted.");
-            if (verbose)
-                Console.Error.WriteLine(ex);
             return 1;
         }
+    }
+
+    private static ParsedArguments? ParseArguments(string[] args)
+    {
+        var positional = new List<string>();
+        var verbose = false;
+        var dryRun = false;
+        var validateOnly = false;
+        var configPath = ConfigurationLoader.DefaultPath;
+
+        for (var i = 0; i < args.Length; i++)
+        {
+            switch (args[i].ToLowerInvariant())
+            {
+                case "--verbose": verbose = true; break;
+                case "--dry-run": dryRun = true; break;
+                case "--validate-only": validateOnly = true; break;
+                case "--config":
+                    if (++i >= args.Length)
+                    {
+                        Console.Error.WriteLine("--config requires a file path.");
+                        PrintUsage();
+                        return null;
+                    }
+                    configPath = args[i];
+                    break;
+                default:
+                    if (args[i].StartsWith("--", StringComparison.Ordinal))
+                    {
+                        Console.Error.WriteLine($"Unknown option: {args[i]}");
+                        PrintUsage();
+                        return null;
+                    }
+                    positional.Add(args[i]);
+                    break;
+            }
+        }
+
+        if (dryRun && validateOnly || positional.Count is < 1 or > 2 ||
+            (positional[0].Equals("apply", StringComparison.OrdinalIgnoreCase) && positional.Count != 2) ||
+            (positional.Count == 2 && !positional[0].Equals("apply", StringComparison.OrdinalIgnoreCase)))
+        {
+            PrintUsage();
+            return null;
+        }
+
+        var command = positional[0];
+        var nonApply = command.Equals("list", StringComparison.OrdinalIgnoreCase) || command.Equals("status", StringComparison.OrdinalIgnoreCase) ||
+                       command.Equals("capture", StringComparison.OrdinalIgnoreCase) || command.Equals("profiles", StringComparison.OrdinalIgnoreCase) ||
+                       command.Equals("config-check", StringComparison.OrdinalIgnoreCase) || command.Equals("config-path", StringComparison.OrdinalIgnoreCase);
+        if ((dryRun || validateOnly) && nonApply)
+        {
+            Console.Error.WriteLine("--dry-run and --validate-only are valid only when applying a profile.");
+            return null;
+        }
+
+        return new ParsedArguments(command, positional.Count == 2 ? positional[1] : null, configPath, verbose, dryRun, validateOnly);
+    }
+
+    private static void PrintConfiguration(DisplayModeConfiguration configuration)
+    {
+        Console.WriteLine($"Configuration: {configuration.Path}");
+        Console.WriteLine($"Unmanaged targets allowed: {configuration.AllowUnmanagedTargets.ToString().ToLowerInvariant()}");
+        Console.WriteLine("Monitors:");
+        foreach (var monitor in configuration.Monitors.Values.OrderBy(m => m.Alias))
+            Console.WriteLine($"  {monitor.Alias} -> contains '{monitor.Match}'");
+        Console.WriteLine("Profiles:");
+        foreach (var profile in configuration.Profiles.Values.OrderBy(p => p.Name))
+            Console.WriteLine($"  {profile.Name}: {string.Join(", ", profile.ActiveMonitors.Select(m => $"{m.Alias} {m.Width}x{m.Height}@{m.RefreshHz:0.###}"))}");
     }
 
     private static void PrintUsage()
     {
         Console.WriteLine("Usage:");
-        Console.WriteLine("  DisplayMode.exe 3 [--dry-run | --validate-only] [--verbose]");
-        Console.WriteLine("  DisplayMode.exe 13 [--dry-run | --validate-only] [--verbose]");
-        Console.WriteLine("  DisplayMode.exe 2 [--dry-run | --validate-only] [--verbose]");
-        Console.WriteLine("  DisplayMode.exe list [--verbose]");
-        Console.WriteLine("  DisplayMode.exe status [--verbose]");
-        Console.WriteLine("  DisplayMode.exe capture [--verbose]");
-        Console.WriteLine("  DisplayMode.exe prepare-13 [--dry-run | --validate-only] [--verbose]");
+        Console.WriteLine("  DisplayMode.exe <profile> [--dry-run | --validate-only] [--verbose]");
+        Console.WriteLine("  DisplayMode.exe apply <profile> [--dry-run | --validate-only] [--verbose]");
+        Console.WriteLine("  DisplayMode.exe list | status | capture | profiles | config-check | config-path");
+        Console.WriteLine("  Add --config <path> to use a different profiles.json file.");
     }
+
+    private sealed record ParsedArguments(string Command, string? ProfileName, string ConfigPath,
+        bool Verbose, bool DryRun, bool ValidateOnly);
 }

@@ -18,7 +18,7 @@ internal sealed class TargetTimingStore(bool verbose)
             if (!File.Exists(path))
                 return;
             foreach (var item in JsonSerializer.Deserialize<List<TargetTimingDto>>(File.ReadAllText(path)) ?? [])
-                timings[item.HardwareId] = item;
+                timings[Key(item.HardwareId, item.Width, item.Height, item.RefreshHz)] = item;
             if (verbose)
                 Console.WriteLine($"Loaded {timings.Count} cached native target timing(s) from {path}.");
         }
@@ -30,36 +30,28 @@ internal sealed class TargetTimingStore(bool verbose)
 
     internal DisplayConfigTargetMode? Find(MonitorProfile profile)
     {
-        if (!timings.TryGetValue(profile.HardwareId, out var item) ||
-            item.Width != profile.Width || item.Height != profile.Height ||
-            Math.Abs(item.RefreshHz - profile.RefreshHz) > 0.5)
-            return null;
-        return item.ToNative();
+        return timings.Values.FirstOrDefault(item =>
+            item.HardwareId.Equals(profile.HardwareId, StringComparison.OrdinalIgnoreCase) &&
+            item.Width == profile.Width && item.Height == profile.Height &&
+            Math.Abs(item.RefreshHz - profile.RefreshHz) <= 0.5)?.ToNative();
     }
 
     internal int Capture(DisplaySnapshot snapshot)
     {
         var captured = 0;
-        foreach (var monitor in snapshot.Monitors.Where(m => m.HardwareId is not null && m.ActiveTargetMode.HasValue))
+        foreach (var monitor in snapshot.Monitors.Where(m => m.HardwareId is not null &&
+                     m.ActiveTargetMode.HasValue && m.ActiveSourceMode.HasValue && m.ActivePath.HasValue))
         {
-            var desired = DisplayProfile.Profiles.Values.SelectMany(p => p.ActiveMonitors)
-                .FirstOrDefault(p => p.HardwareId.Equals(monitor.HardwareId, StringComparison.OrdinalIgnoreCase));
-            if (desired is null)
-                continue;
-
             var timing = monitor.ActiveTargetMode!.Value;
             var signal = timing.TargetVideoSignalInfo;
-            var dimensionsMatch = (signal.ActiveSize.Cx == desired.Width && signal.ActiveSize.Cy == desired.Height) ||
-                                  (desired.Rotation is DisplayConfigRotation.Rotate90 or DisplayConfigRotation.Rotate270 &&
-                                   signal.ActiveSize.Cx == desired.Height && signal.ActiveSize.Cy == desired.Width);
-            if (!dimensionsMatch || Math.Abs(signal.VSyncFreq.Hertz - desired.RefreshHz) > 0.5)
-            {
-                if (verbose)
-                    Console.WriteLine($"Not caching {monitor.HardwareId}: active timing is {signal.ActiveSize.Cx}x{signal.ActiveSize.Cy} @ {signal.VSyncFreq}, requested {desired.RefreshHz} Hz.");
-                continue;
-            }
-
-            timings[monitor.HardwareId!] = TargetTimingDto.FromNative(monitor.HardwareId!, desired, timing);
+            var source = monitor.ActiveSourceMode!.Value;
+            var rotation = monitor.ActivePath!.Value.TargetInfo.Rotation;
+            var width = rotation is DisplayConfigRotation.Rotate90 or DisplayConfigRotation.Rotate270 ? source.Height : source.Width;
+            var height = rotation is DisplayConfigRotation.Rotate90 or DisplayConfigRotation.Rotate270 ? source.Width : source.Height;
+            var item = TargetTimingDto.FromNative(monitor.HardwareId!, width, height, timing);
+            timings[Key(item.HardwareId, item.Width, item.Height, item.RefreshHz)] = item;
+            if (verbose)
+                Console.WriteLine($"Caching {monitor.HardwareId}: {width}x{height} @ {signal.VSyncFreq}.");
             captured++;
         }
 
@@ -79,6 +71,9 @@ internal sealed class TargetTimingStore(bool verbose)
     }
 
     internal string CachePath => path;
+
+    private static string Key(string id, uint width, uint height, double refresh) =>
+        $"{id}|{width}x{height}|{refresh:0.000}";
 
     private void Save()
     {
@@ -106,14 +101,14 @@ internal sealed class TargetTimingStore(bool verbose)
         public uint AdditionalSignalInfo { get; set; }
         public DisplayConfigScanLineOrdering ScanLineOrdering { get; set; }
 
-        internal static TargetTimingDto FromNative(string id, MonitorProfile profile, DisplayConfigTargetMode mode)
+        internal static TargetTimingDto FromNative(string id, uint width, uint height, DisplayConfigTargetMode mode)
         {
             var s = mode.TargetVideoSignalInfo;
             return new TargetTimingDto
             {
                 HardwareId = id,
-                Width = profile.Width,
-                Height = profile.Height,
+                Width = width,
+                Height = height,
                 RefreshHz = s.VSyncFreq.Hertz,
                 PixelRate = s.PixelRate,
                 HNumerator = s.HSyncFreq.Numerator,

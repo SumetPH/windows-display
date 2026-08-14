@@ -9,7 +9,7 @@ internal static class DisplayDiscovery
 {
     private const int MaxQueryAttempts = 8;
 
-    internal static DisplaySnapshot QueryAllPaths(bool verbose)
+    internal static DisplaySnapshot QueryAllPaths(bool verbose, IEnumerable<string> monitorIdentifiers)
     {
         var (paths, modes) = Query(QueryDisplayConfigFlags.AllPaths);
         var grouped = paths.GroupBy(p => new TargetKey(p.TargetInfo.AdapterId, p.TargetInfo.Id));
@@ -77,7 +77,7 @@ internal static class DisplayDiscovery
             });
         }
 
-        MatchKnownHardware(monitors);
+        MatchKnownHardware(monitors, monitorIdentifiers);
         return new DisplaySnapshot(paths, modes, monitors);
     }
 
@@ -105,9 +105,9 @@ internal static class DisplayDiscovery
             $"Display topology kept changing during {MaxQueryAttempts} QueryDisplayConfig attempts.");
     }
 
-    private static void MatchKnownHardware(List<MonitorInfo> monitors)
+    private static void MatchKnownHardware(List<MonitorInfo> monitors, IEnumerable<string> monitorIdentifiers)
     {
-        foreach (var hardwareId in DisplayProfile.KnownHardwareIds)
+        foreach (var hardwareId in monitorIdentifiers)
         {
             var matches = monitors.Where(m =>
                 m.DevicePath.Contains(hardwareId, StringComparison.OrdinalIgnoreCase) ||
