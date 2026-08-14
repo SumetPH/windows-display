@@ -1,6 +1,8 @@
 **/bin/
 **/obj/
 *.user
+artifacts/
+.build-state/
 .dotnet-sdk/
 .dotnet-home/
 .nuget-packages/

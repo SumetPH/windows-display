@@ -1,0 +1,199 @@
+using System.Diagnostics;
+using Microsoft.Win32;
+
+namespace DisplayMode.Tray;
+
+internal sealed class TrayApplicationContext : ApplicationContext
+{
+    private const string StartupKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
+    private const string StartupValue = "DisplayMode.Tray";
+    private readonly NotifyIcon notifyIcon;
+    private readonly HotKeyManager hotKeys = new();
+    private readonly SemaphoreSlim switchLock = new(1, 1);
+    private TraySettings settings = TraySettings.Load();
+    private IReadOnlyList<string> profiles = [];
+
+    internal TrayApplicationContext()
+    {
+        notifyIcon = new NotifyIcon
+        {
+            Icon = SystemIcons.Application,
+            Text = "DisplayMode",
+            Visible = true
+        };
+        notifyIcon.DoubleClick += (_, _) => ShowSettings();
+        Reload(showSuccess: false);
+    }
+
+    private void Reload(bool showSuccess)
+    {
+        try
+        {
+            profiles = DisplayModeClient.LoadProfiles(settings.ConfigPath);
+            try
+            {
+                RegisterHotKeys();
+            }
+            catch (Exception ex)
+            {
+                hotKeys.Clear();
+                Notify($"Hotkey error: {ex.Message}", ToolTipIcon.Error);
+            }
+            BuildMenu();
+            if (showSuccess)
+                Notify("Configuration reloaded", ToolTipIcon.Info);
+        }
+        catch (Exception ex)
+        {
+            profiles = [];
+            hotKeys.Clear();
+            BuildMenu();
+            Notify($"Configuration error: {ex.Message}", ToolTipIcon.Error);
+        }
+    }
+
+    private void RegisterHotKeys()
+    {
+        hotKeys.Clear();
+        foreach (var binding in settings.HotKeys)
+        {
+            if (!profiles.Contains(binding.Profile, StringComparer.OrdinalIgnoreCase))
+                throw new InvalidDataException($"Hotkey profile '{binding.Profile}' does not exist.");
+            var profile = binding.Profile;
+            hotKeys.Register(binding.Shortcut, () => _ = ApplyProfileAsync(profile));
+        }
+    }
+
+    private void BuildMenu()
+    {
+        var menu = new ContextMenuStrip();
+        var heading = new ToolStripMenuItem("Display profiles") { Enabled = false };
+        menu.Items.Add(heading);
+        foreach (var profile in profiles)
+        {
+            var shortcut = settings.HotKeys.FirstOrDefault(h => h.Profile.Equals(profile, StringComparison.OrdinalIgnoreCase))?.Shortcut;
+            var item = new ToolStripMenuItem(profile) { ShortcutKeyDisplayString = shortcut ?? string.Empty };
+            item.Click += (_, _) => _ = ApplyProfileAsync(profile);
+            menu.Items.Add(item);
+        }
+        if (profiles.Count == 0)
+            menu.Items.Add(new ToolStripMenuItem("(no profiles loaded)") { Enabled = false });
+
+        menu.Items.Add(new ToolStripSeparator());
+        var startup = new ToolStripMenuItem("Run at startup") { Checked = IsStartupEnabled(), CheckOnClick = true };
+        startup.Click += (_, _) =>
+        {
+            try { SetStartup(startup.Checked); }
+            catch (Exception ex)
+            {
+                startup.Checked = !startup.Checked;
+                Notify($"Could not update startup: {ex.Message}", ToolTipIcon.Error);
+            }
+        };
+        menu.Items.Add(startup);
+        menu.Items.Add("Settings...", null, (_, _) => ShowSettings());
+        menu.Items.Add("Open profiles.json", null, (_, _) => OpenConfig());
+        menu.Items.Add("Reload configuration", null, (_, _) => Reload(showSuccess: true));
+        menu.Items.Add(new ToolStripSeparator());
+        menu.Items.Add("Exit", null, (_, _) => ExitThread());
+
+        var previous = notifyIcon.ContextMenuStrip;
+        notifyIcon.ContextMenuStrip = menu;
+        previous?.Dispose();
+    }
+
+    private async Task ApplyProfileAsync(string profile)
+    {
+        if (!await switchLock.WaitAsync(0))
+        {
+            Notify("A display switch is already running.", ToolTipIcon.Warning);
+            return;
+        }
+        try
+        {
+            notifyIcon.Text = $"DisplayMode - applying {profile}";
+            var result = await DisplayModeClient.ApplyAsync(settings, profile);
+            if (result.ExitCode == 0)
+                Notify($"Profile '{profile}' applied successfully.", ToolTipIcon.Info);
+            else
+            {
+                Notify($"Profile '{profile}' failed (exit {result.ExitCode}).", ToolTipIcon.Error);
+                MessageBox.Show(TrimOutput(result.Output), $"DisplayMode - {profile}",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Notify($"Profile '{profile}' failed: {ex.Message}", ToolTipIcon.Error);
+        }
+        finally
+        {
+            notifyIcon.Text = "DisplayMode";
+            switchLock.Release();
+        }
+    }
+
+    private void ShowSettings()
+    {
+        try
+        {
+            using var form = new SettingsForm(settings, profiles, IsStartupEnabled());
+            if (form.ShowDialog() != DialogResult.OK)
+                return;
+            settings = form.ResultSettings;
+            settings.Save();
+            SetStartup(form.StartupEnabled);
+            Reload(showSuccess: true);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(ex.Message, "DisplayMode settings", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    private void OpenConfig()
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo(settings.ConfigPath) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            Notify($"Could not open config: {ex.Message}", ToolTipIcon.Error);
+        }
+    }
+
+    private static bool IsStartupEnabled()
+    {
+        using var key = Registry.CurrentUser.OpenSubKey(StartupKey);
+        return key?.GetValue(StartupValue) is string;
+    }
+
+    private static void SetStartup(bool enabled)
+    {
+        using var key = Registry.CurrentUser.CreateSubKey(StartupKey);
+        if (enabled)
+            key.SetValue(StartupValue, $"\"{Application.ExecutablePath}\"");
+        else
+            key.DeleteValue(StartupValue, throwOnMissingValue: false);
+    }
+
+    private void Notify(string message, ToolTipIcon icon)
+    {
+        notifyIcon.BalloonTipTitle = "DisplayMode";
+        notifyIcon.BalloonTipText = message.Length > 250 ? message[..250] : message;
+        notifyIcon.BalloonTipIcon = icon;
+        notifyIcon.ShowBalloonTip(3500);
+    }
+
+    private static string TrimOutput(string output) => output.Length <= 6000 ? output : output[..6000] + "\n\n(output truncated)";
+
+    protected override void ExitThreadCore()
+    {
+        hotKeys.Dispose();
+        switchLock.Dispose();
+        notifyIcon.Visible = false;
+        notifyIcon.Dispose();
+        base.ExitThreadCore();
+    }
+}

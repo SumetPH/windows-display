@@ -13,6 +13,40 @@ The program deliberately does not identify monitors through `DISPLAY1`, `DISPLAY
 
 The self-contained published executable does not require .NET to be installed.
 
+## Background GUI, tray icon, startup, and hotkeys
+
+`DisplayMode.Tray.exe` is the optional WinForms front end. Keep it in the same folder as `DisplayMode.exe` and `profiles.json`, then launch it:
+
+```powershell
+.\DisplayMode.Tray.exe
+```
+
+It runs as a single background instance and places a DisplayMode icon in the Windows notification area. Right-click the icon to:
+
+- apply any profile from `profiles.json`;
+- enable or disable **Run at startup** for the current Windows user;
+- open the settings window;
+- open or reload `profiles.json`;
+- exit the background application.
+
+Double-click the tray icon to open Settings. Settings lets you select the CLI/config paths and edit global shortcuts. Defaults are:
+
+| Shortcut | Profile |
+|---|---|
+| `Ctrl+Alt+3` | `3` |
+| `Ctrl+Alt+2` | `2` |
+| `Ctrl+Alt+1` | `13` |
+
+Shortcut syntax accepts combinations such as `Ctrl+Alt+3`, `Ctrl+Shift+F1`, or `Win+Alt+G`. A shortcut must contain at least one modifier. If another application already owns it, the tray app reports the registration error rather than silently replacing it.
+
+Tray settings are stored at:
+
+```text
+%LOCALAPPDATA%\DisplayMode\tray-settings.json
+```
+
+Startup uses the per-user registry value `HKCU\Software\Microsoft\Windows\CurrentVersion\Run\DisplayMode.Tray`; it does not require Administrator privileges. Profile switching launches `DisplayMode.exe` with a hidden console, prevents overlapping switches, and shows success/failure notifications. Detailed CLI output is shown in an error dialog when a switch fails.
+
 ## Commands
 
 Apply a profile directly or with the explicit `apply` command:
@@ -202,6 +236,39 @@ Output:
 DisplayMode\bin\Release\net8.0-windows\win-x64\publish\
   DisplayMode.exe
   profiles.json
+```
+
+Build the tray GUI:
+
+```powershell
+dotnet build .\DisplayMode.Tray\DisplayMode.Tray.csproj -c Release
+```
+
+To publish both self-contained executables into one ready-to-run folder, use the included script:
+
+```powershell
+.\publish.ps1
+```
+
+If local PowerShell execution policy blocks scripts, use a one-process bypass (it does not change the system policy):
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\publish.ps1
+```
+
+Default combined output:
+
+```text
+artifacts\publish\
+  DisplayMode.exe
+  DisplayMode.Tray.exe
+  profiles.json
+```
+
+Custom output path:
+
+```powershell
+.\publish.ps1 -OutputPath D:\Tools\DisplayMode
 ```
 
 ## Safety behavior
