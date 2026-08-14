@@ -1,6 +1,6 @@
 # DisplayMode
 
-`DisplayMode` is a Windows 11 x64 display-topology switcher built on the native CCD APIs. Monitor identities and display profiles are read from `profiles.json`, so ports, positions, resolutions, refresh rates, rotations, and profile names can be changed without recompiling.
+`DisplayMode` is a Windows 11 x64 display-topology switcher built on the native CCD APIs. Monitor identities and display profiles are read from `profiles.json`, so ports, positions, resolutions, refresh rates, rotations, per-monitor wallpapers, and profile names can be changed without recompiling.
 
 The program deliberately does not identify monitors through `DISPLAY1`, `DISPLAY2`, connector order, adapter LUID, source ID, or target ID. It rediscovers every CCD path before each operation and matches persistent text in `DISPLAYCONFIG_TARGET_DEVICE_NAME`.
 
@@ -159,8 +159,39 @@ When `allowUnmanagedTargets` is `false` (recommended), an apply operation fails 
 | `rotation` | `landscape`, `portrait`, `landscape-inverted`, or `portrait-inverted` |
 | `x`, `y` | Upper-left desktop coordinate in physical pixels |
 | `primary` | Exactly one active monitor must be `true` |
+| `wallpaper` | Optional image path to apply to this monitor after a successful switch |
 
 The primary monitor must be at `(0,0)`. Monitor rectangles cannot overlap or have gaps; every rectangle must touch the rest of the layout along an edge. `config-check` verifies these rules without querying or modifying displays.
+
+### Per-monitor wallpaper
+
+Add the optional `wallpaper` field to any active monitor entry. Each profile can use a different image for the same physical monitor:
+
+```json
+"movie": {
+  "monitors": [
+    {
+      "monitor": "tv",
+      "width": 3840,
+      "height": 2160,
+      "refreshHz": 60,
+      "rotation": "landscape",
+      "x": 0,
+      "y": 0,
+      "primary": true,
+      "wallpaper": "D:\\Wallpapers\\movie-night.jpg"
+    }
+  ]
+}
+```
+
+- Relative paths such as `wallpapers\\gaming.jpg` are resolved from the folder containing the selected `profiles.json`.
+- Absolute paths and environment variables such as `%USERPROFILE%\\Pictures\\wallpaper.jpg` are accepted.
+- The file must exist when the configuration is loaded; `config-check` reports a missing or invalid path.
+- If `wallpaper` is omitted or empty, the current wallpaper for that monitor is left unchanged.
+- Wallpaper is applied only after `SetDisplayConfig` succeeds. `--dry-run` and `--validate-only` never change it.
+- If topology succeeds but wallpaper fails, the CLI reports a partial failure and does not attempt to undo the working display topology.
+- Windows supports a separate image per monitor, but Fill/Fit/Stretch/Tile/Center/Span is a desktop-wide setting. DisplayMode preserves the current Windows wallpaper style; configure that once in Windows Settings.
 
 Example profile with a portrait monitor to the right:
 
@@ -298,7 +329,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\CreateIcon.ps1 `
 - The source at `(0,0)` is primary; CCD has no generic `Primary=true` flag.
 - Portrait source dimensions are converted to CCD's pre-rotation coordinate convention.
 
-The native layouts and flags follow Microsoft's documentation for [QueryDisplayConfig](https://learn.microsoft.com/windows/win32/api/winuser/nf-winuser-querydisplayconfig), [SetDisplayConfig](https://learn.microsoft.com/windows/win32/api/winuser/nf-winuser-setdisplayconfig), and [DISPLAYCONFIG_TARGET_DEVICE_NAME](https://learn.microsoft.com/windows/win32/api/wingdi/ns-wingdi-displayconfig_target_device_name).
+The native layouts and flags follow Microsoft's documentation for [QueryDisplayConfig](https://learn.microsoft.com/windows/win32/api/winuser/nf-winuser-querydisplayconfig), [SetDisplayConfig](https://learn.microsoft.com/windows/win32/api/winuser/nf-winuser-setdisplayconfig), [DISPLAYCONFIG_TARGET_DEVICE_NAME](https://learn.microsoft.com/windows/win32/api/wingdi/ns-wingdi-displayconfig_target_device_name), and [IDesktopWallpaper::SetWallpaper](https://learn.microsoft.com/windows/win32/api/shobjidl_core/nf-shobjidl_core-idesktopwallpaper-setwallpaper).
 
 ## Troubleshooting
 

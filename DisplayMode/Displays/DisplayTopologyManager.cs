@@ -222,7 +222,7 @@ internal sealed class DisplayTopologyManager(bool verbose, DisplayModeConfigurat
             return ReportSetError("Apply", result, modeName);
 
         Console.WriteLine("Success.");
-        return 0;
+        return DesktopWallpaperManager.Apply(topology.Profiles, topology.Monitors) ? 0 : 1;
     }
 
     internal void PrintMonitors(DisplaySnapshot snapshot, bool activeOnly)
@@ -370,6 +370,8 @@ internal sealed class DisplayTopologyManager(bool verbose, DisplayModeConfigurat
             var primary = p.Primary ? " PRIMARY" : string.Empty;
             var timing = proposed.ReusedTargetTimings.Contains(p.HardwareId) ? ", complete native timing supplied" : ", target timing selected by CCD";
             Console.WriteLine($"  {p.Alias} ({p.HardwareId}) {p.Width}x{p.Height} @{proposed.RefreshRates[p.HardwareId]} {orientation} ({p.X},{p.Y}){primary}{timing}");
+            if (p.WallpaperPath is not null)
+                Console.WriteLine($"    Wallpaper: {p.WallpaperPath}");
         }
         Console.WriteLine();
         Console.WriteLine("INACTIVE:");

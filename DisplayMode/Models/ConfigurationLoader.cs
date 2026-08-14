@@ -47,8 +47,9 @@ internal static class ConfigurationLoader
                     throw new InvalidDataException($"Profile '{name}' contains monitor '{monitor.Alias}' more than once.");
                 if (item.Width == 0 || item.Height == 0 || item.RefreshHz <= 0 || !double.IsFinite(item.RefreshHz))
                     throw new InvalidDataException($"Profile '{name}', monitor '{monitor.Alias}' has an invalid size or refresh rate.");
+                var wallpaperPath = ResolveWallpaperPath(item.Wallpaper, fullPath, name, monitor.Alias);
                 entries.Add(new MonitorProfile(monitor.Alias, monitor.Match, item.Width, item.Height, item.RefreshHz,
-                    ParseRotation(item.Rotation, name, monitor.Alias), item.X, item.Y, item.Primary));
+                    ParseRotation(item.Rotation, name, monitor.Alias), item.X, item.Y, item.Primary, wallpaperPath));
             }
             ValidateLayout(name, entries);
             profiles.Add(name.Trim(), new DisplayProfile(name.Trim(), entries));
@@ -64,6 +65,33 @@ internal static class ConfigurationLoader
         "portrait-inverted" or "rotate270" or "270" => DisplayConfigRotation.Rotate270,
         _ => throw new InvalidDataException($"Profile '{profile}', monitor '{monitor}' has unknown rotation '{value}'.")
     };
+
+    private static string? ResolveWallpaperPath(string? value, string configurationPath, string profile, string monitor)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        try
+        {
+            var expanded = Environment.ExpandEnvironmentVariables(value.Trim());
+            var directory = Path.GetDirectoryName(configurationPath)
+                            ?? throw new InvalidDataException("The configuration directory could not be determined.");
+            var fullPath = Path.GetFullPath(expanded, directory);
+            if (!File.Exists(fullPath))
+                throw new InvalidDataException(
+                    $"Profile '{profile}', monitor '{monitor}' wallpaper was not found: {fullPath}");
+            return fullPath;
+        }
+        catch (InvalidDataException)
+        {
+            throw;
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            throw new InvalidDataException(
+                $"Profile '{profile}', monitor '{monitor}' has an invalid wallpaper path '{value}'.", ex);
+        }
+    }
 
     private static void ValidateLayout(string name, IReadOnlyList<MonitorProfile> entries)
     {
@@ -125,5 +153,6 @@ internal static class ConfigurationLoader
         public int X { get; set; }
         public int Y { get; set; }
         public bool Primary { get; set; }
+        public string? Wallpaper { get; set; }
     }
 }

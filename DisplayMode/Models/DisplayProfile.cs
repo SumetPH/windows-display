@@ -13,7 +13,8 @@ internal sealed record MonitorProfile(
     DisplayConfigRotation Rotation,
     int X,
     int Y,
-    bool Primary);
+    bool Primary,
+    string? WallpaperPath);
 
 internal sealed record DisplayProfile(string Name, IReadOnlyList<MonitorProfile> ActiveMonitors);
 
