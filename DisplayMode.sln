@@ -1,0 +1,24 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DisplayMode", "DisplayMode\DisplayMode.csproj", "{21756398-461B-4821-A463-053DC70776FD}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DisplayMode.Tray", "DisplayMode.Tray\DisplayMode.Tray.csproj", "{D81A527F-81E5-4FF4-8DFB-4DA93AFB232F}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{21756398-461B-4821-A463-053DC70776FD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{21756398-461B-4821-A463-053DC70776FD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{21756398-461B-4821-A463-053DC70776FD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{21756398-461B-4821-A463-053DC70776FD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D81A527F-81E5-4FF4-8DFB-4DA93AFB232F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D81A527F-81E5-4FF4-8DFB-4DA93AFB232F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D81A527F-81E5-4FF4-8DFB-4DA93AFB232F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D81A527F-81E5-4FF4-8DFB-4DA93AFB232F}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

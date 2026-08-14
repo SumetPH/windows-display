@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "allowUnmanagedTargets": false,
+
+  // Run "DisplayMode.exe list" and replace each match value with a unique
+  // Hardware ID or Device Path substring reported for the physical monitor.
+  "monitors": {
+    "main": { "match": "DELA274" },
+    "side": { "match": "GSM5BD2" },
+    "tv": { "match": "HEC002F" }
+  },
+
+  "profiles": {
+    "main-only": {
+      "monitors": [
+        {
+          "monitor": "main",
+          "width": 3840,
+          "height": 2160,
+          "refreshHz": 120,
+          "rotation": "landscape",
+          "x": 0,
+          "y": 0,
+          "primary": true,
+          "wallpaper": "wallpapers\\main.jpg"
+        }
+      ]
+    },
+
+    "tv-only": {
+      "monitors": [
+        {
+          "monitor": "tv",
+          "width": 3840,
+          "height": 2160,
+          "refreshHz": 60,
+          "rotation": "landscape",
+          "x": 0,
+          "y": 0,
+          "primary": true,
+          "wallpaper": "D:\\Wallpapers\\tv.jpg"
+        }
+      ]
+    },
+
+    "dual-work": {
+      "monitors": [
+        {
+          "monitor": "main",
+          "width": 3840,
+          "height": 2160,
+          "refreshHz": 120,
+          "rotation": "landscape",
+          "x": 0,
+          "y": 0,
+          "primary": true,
+          "wallpaper": "%USERPROFILE%\\Pictures\\Wallpapers\\work-main.jpg"
+        },
+        {
+          "monitor": "side",
+          "width": 1440,
+          "height": 2560,
+          "refreshHz": 120,
+          "rotation": "portrait",
+          "x": -1440,
+          "y": 0,
+          "primary": false,
+          "wallpaper": "%USERPROFILE%\\Pictures\\Wallpapers\\work-side.jpg"
+        }
+      ]
+    }
+  }
+}

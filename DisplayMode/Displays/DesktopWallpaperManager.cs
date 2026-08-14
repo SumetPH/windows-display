@@ -118,6 +118,7 @@ internal static class DesktopWallpaperManager
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
     private interface IDesktopWallpaper
     {
+        // Keep every method in native interface order. The unused declarations preserve the COM vtable layout.
         [PreserveSig] int SetWallpaper([MarshalAs(UnmanagedType.LPWStr)] string monitorId,
             [MarshalAs(UnmanagedType.LPWStr)] string wallpaper);
         [PreserveSig] int GetWallpaper([MarshalAs(UnmanagedType.LPWStr)] string? monitorId, out IntPtr wallpaper);

@@ -2,10 +2,7 @@ using DisplayMode.Native;
 
 namespace DisplayMode.Displays;
 
-internal sealed record DisplaySnapshot(
-    DisplayConfigPathInfo[] Paths,
-    DisplayConfigModeInfo[] Modes,
-    IReadOnlyList<Models.MonitorInfo> Monitors);
+internal sealed record DisplaySnapshot(IReadOnlyList<Models.MonitorInfo> Monitors);
 
 internal sealed record ProposedTopology(
     DisplayConfigPathInfo[] Paths,

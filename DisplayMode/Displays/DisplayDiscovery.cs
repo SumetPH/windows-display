@@ -78,7 +78,7 @@ internal static class DisplayDiscovery
         }
 
         MatchKnownHardware(monitors, monitorIdentifiers);
-        return new DisplaySnapshot(paths, modes, monitors);
+        return new DisplaySnapshot(monitors);
     }
 
     private static (DisplayConfigPathInfo[] Paths, DisplayConfigModeInfo[] Modes) Query(QueryDisplayConfigFlags flags)
