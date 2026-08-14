@@ -122,9 +122,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
                 Notify($"Profile '{profile}' applied successfully.", ToolTipIcon.None);
             else
             {
-                Notify($"Profile '{profile}' failed (exit {result.ExitCode}).", ToolTipIcon.Error);
-                MessageBox.Show(TrimOutput(result.Output), $"DisplayMode - {profile}",
-                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+                Notify(FormatApplyError(profile, result), ToolTipIcon.Error);
             }
         }
         catch (Exception ex)
@@ -197,7 +195,22 @@ internal sealed class TrayApplicationContext : ApplicationContext
         notifyIcon.ShowBalloonTip(3500);
     }
 
-    private static string TrimOutput(string output) => output.Length <= 6000 ? output : output[..6000] + "\n\n(output truncated)";
+    private static string FormatApplyError(string profile, CommandResult result)
+    {
+        var lines = result.Output.Split(['\r', '\n'],
+            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var detail = lines
+            .FirstOrDefault(line => line.StartsWith("ERROR:", StringComparison.OrdinalIgnoreCase))
+            ?? lines.FirstOrDefault(line => line.Contains("failed", StringComparison.OrdinalIgnoreCase))
+            ?? lines.LastOrDefault();
+        var displayWasApplied = lines.Any(line => line.Equals("Success.", StringComparison.OrdinalIgnoreCase));
+        var fallback = displayWasApplied ? string.Empty : " Current display mode was kept.";
+        detail = detail?.TrimEnd().TrimEnd('.');
+
+        return string.IsNullOrWhiteSpace(detail)
+            ? $"Profile '{profile}' failed (exit {result.ExitCode}).{fallback}"
+            : $"Profile '{profile}' failed: {detail}.{fallback}";
+    }
 
     protected override void ExitThreadCore()
     {
