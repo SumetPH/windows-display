@@ -115,6 +115,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         try
         {
             notifyIcon.Text = $"DisplayMode - applying {profile}";
+            Notify($"Switching to profile '{profile}'...", ToolTipIcon.Info);
             var result = await DisplayModeClient.ApplyAsync(settings, profile);
             if (result.ExitCode == 0)
                 // With no stock status glyph, Windows uses the application's

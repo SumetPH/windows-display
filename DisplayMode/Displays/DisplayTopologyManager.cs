@@ -15,17 +15,19 @@ internal sealed class DisplayTopologyManager(bool verbose, DisplayModeConfigurat
         return store;
     }
 
-    internal DisplaySnapshot Discover()
+    internal DisplaySnapshot Discover(bool announce = true)
     {
-        Console.WriteLine("Discovering display paths...");
+        if (announce)
+            Console.WriteLine("Discovering display paths...");
         var snapshot = DisplayDiscovery.QueryAllPaths(verbose, configuration.Monitors.Values.Select(m => m.Match));
         lastSnapshot = snapshot;
-        Console.WriteLine();
+        if (announce)
+            Console.WriteLine();
         return snapshot;
     }
 
     internal bool TryResolveKnownMonitors(DisplayProfile profile, DisplaySnapshot snapshot,
-        out Dictionary<string, MonitorInfo> result)
+        out Dictionary<string, MonitorInfo> result, bool reportErrors = true)
     {
         result = new(StringComparer.OrdinalIgnoreCase);
         var safe = true;
@@ -43,9 +45,10 @@ internal sealed class DisplayTopologyManager(bool verbose, DisplayModeConfigurat
 
             if (rawMatches.Count != 1)
             {
-                Console.Error.WriteLine(rawMatches.Count == 0
-                    ? $"ERROR: Required monitor {id} was not found."
-                    : $"ERROR: Monitor identifier {id} matched {rawMatches.Count} physical targets; refusing to guess.");
+                if (reportErrors)
+                    Console.Error.WriteLine(rawMatches.Count == 0
+                        ? $"ERROR: Required monitor {id} was not found."
+                        : $"ERROR: Monitor identifier {id} matched {rawMatches.Count} physical targets; refusing to guess.");
                 safe = false;
             }
             else
@@ -59,12 +62,13 @@ internal sealed class DisplayTopologyManager(bool verbose, DisplayModeConfigurat
             var unmanaged = snapshot.Monitors.Where(m => m.HardwareId is null).ToList();
             if (unmanaged.Count > 0)
             {
-                Console.Error.WriteLine($"ERROR: Found {unmanaged.Count} connected monitor target(s) not declared in profiles.json; refusing an exclusive topology change.");
+                if (reportErrors)
+                    Console.Error.WriteLine($"ERROR: Found {unmanaged.Count} connected monitor target(s) not declared in profiles.json; refusing an exclusive topology change.");
                 safe = false;
             }
         }
 
-        if (!safe)
+        if (!safe && reportErrors)
         {
             Console.Error.WriteLine("No display changes were made. Detected targets:");
             PrintMonitors(snapshot, activeOnly: false);
@@ -72,6 +76,16 @@ internal sealed class DisplayTopologyManager(bool verbose, DisplayModeConfigurat
 
         return safe;
     }
+
+    internal static bool RequiredTargetsAvailable(DisplayProfile profile,
+        IReadOnlyDictionary<string, MonitorInfo> monitors) =>
+        profile.ActiveMonitors.All(requested =>
+            monitors.TryGetValue(requested.HardwareId, out var monitor) &&
+            monitor.CandidatePaths.Any(path => path.TargetInfo.TargetAvailable));
+
+    internal static bool IsProfileActive(DisplayProfile profile, DisplaySnapshot snapshot) =>
+        profile.ActiveMonitors.All(requested => snapshot.Monitors.Any(monitor =>
+            monitor.Active && requested.HardwareId.Equals(monitor.HardwareId, StringComparison.OrdinalIgnoreCase)));
 
     internal ProposedTopology Build(DisplayProfile profile, DisplaySnapshot snapshot, Dictionary<string, MonitorInfo> monitors)
     {

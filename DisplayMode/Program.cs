@@ -6,6 +6,11 @@ namespace DisplayMode;
 
 internal static class Program
 {
+    private const int TargetReadyTimeoutMilliseconds = 10_000;
+    private const int TargetReadyPollMilliseconds = 500;
+    private const int TopologyVerificationDelayMilliseconds = 1_500;
+    private const int MaxApplyAttempts = 3;
+
     [STAThread]
     private static int Main(string[] args)
     {
@@ -65,12 +70,15 @@ internal static class Program
                 return 2;
             }
 
-            if (!manager.TryResolveKnownMonitors(profile, snapshot, out var monitors))
-                return 1;
-            if (!parsed.DryRun && !parsed.ValidateOnly)
-                manager.CacheObservedTimings(snapshot);
-            var proposal = manager.Build(profile, snapshot, monitors);
-            return manager.ValidateAndApply(profile.Name, proposal, parsed.DryRun, parsed.ValidateOnly);
+            if (parsed.DryRun || parsed.ValidateOnly)
+            {
+                if (!manager.TryResolveKnownMonitors(profile, snapshot, out var monitors))
+                    return 1;
+                var proposal = manager.Build(profile, snapshot, monitors);
+                return manager.ValidateAndApply(profile.Name, proposal, parsed.DryRun, parsed.ValidateOnly);
+            }
+
+            return ApplyWithWakeRecovery(manager, profile, snapshot);
         }
         catch (Win32Exception ex)
         {
@@ -83,6 +91,70 @@ internal static class Program
             Console.Error.WriteLine($"ERROR: {ex.Message}");
             Console.Error.WriteLine("No further display operation was attempted.");
             return 1;
+        }
+    }
+
+    private static int ApplyWithWakeRecovery(DisplayTopologyManager manager, DisplayProfile profile,
+        DisplaySnapshot initialSnapshot)
+    {
+        var snapshot = initialSnapshot;
+        var waitingMessageShown = false;
+
+        for (var applyAttempt = 1; applyAttempt <= MaxApplyAttempts; applyAttempt++)
+        {
+            if (!WaitForReadyTargets(manager, profile, ref snapshot, ref waitingMessageShown, out var monitors))
+                return 1;
+
+            manager.CacheObservedTimings(snapshot);
+            var proposal = manager.Build(profile, snapshot, monitors);
+            var result = manager.ValidateAndApply(profile.Name, proposal, dryRun: false, validateOnly: false);
+            if (result != 0)
+                return result;
+
+            Thread.Sleep(TopologyVerificationDelayMilliseconds);
+            snapshot = manager.Discover(announce: false);
+            if (DisplayTopologyManager.IsProfileActive(profile, snapshot))
+                return 0;
+
+            if (applyAttempt < MaxApplyAttempts)
+                Console.WriteLine($"Requested monitors are not all active yet; retrying with fresh display paths ({applyAttempt + 1}/{MaxApplyAttempts})...");
+        }
+
+        Console.Error.WriteLine($"ERROR: Profile '{profile.Name}' was accepted, but not all requested monitors became active after {MaxApplyAttempts} attempts.");
+        return 1;
+    }
+
+    private static bool WaitForReadyTargets(DisplayTopologyManager manager, DisplayProfile profile,
+        ref DisplaySnapshot snapshot, ref bool waitingMessageShown,
+        out Dictionary<string, MonitorInfo> monitors)
+    {
+        var deadline = Environment.TickCount64 + TargetReadyTimeoutMilliseconds;
+        while (true)
+        {
+            if (manager.TryResolveKnownMonitors(profile, snapshot, out monitors, reportErrors: false) &&
+                DisplayTopologyManager.RequiredTargetsAvailable(profile, monitors))
+                return true;
+
+            if (Environment.TickCount64 >= deadline)
+            {
+                if (!manager.TryResolveKnownMonitors(profile, snapshot, out monitors, reportErrors: true))
+                    return false;
+
+                var resolvedMonitors = monitors;
+                var unavailable = profile.ActiveMonitors
+                    .Where(requested => !resolvedMonitors[requested.HardwareId].CandidatePaths.Any(path => path.TargetInfo.TargetAvailable))
+                    .Select(requested => requested.Alias);
+                Console.Error.WriteLine($"ERROR: Timed out waiting for display target(s) to wake: {string.Join(", ", unavailable)}.");
+                return false;
+            }
+
+            if (!waitingMessageShown)
+            {
+                Console.WriteLine("Waiting for requested monitors to wake...");
+                waitingMessageShown = true;
+            }
+            Thread.Sleep(TargetReadyPollMilliseconds);
+            snapshot = manager.Discover(announce: false);
         }
     }
 
