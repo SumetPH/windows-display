@@ -24,14 +24,19 @@ internal sealed class DisplayTopologyManager(bool verbose, DisplayModeConfigurat
         return snapshot;
     }
 
-    internal bool TryResolveKnownMonitors(DisplaySnapshot snapshot, out Dictionary<string, MonitorInfo> result)
+    internal bool TryResolveKnownMonitors(DisplayProfile profile, DisplaySnapshot snapshot,
+        out Dictionary<string, MonitorInfo> result)
     {
         result = new(StringComparer.OrdinalIgnoreCase);
         var safe = true;
 
-        foreach (var definition in configuration.Monitors.Values)
+        // A supplied CCD topology contains only the paths that should remain active, so a
+        // configured monitor that is not part of this profile does not need to be present.
+        // Requiring every configured monitor here prevented otherwise valid profiles from
+        // being applied whenever an unused monitor was powered off or disconnected.
+        foreach (var requested in profile.ActiveMonitors)
         {
-            var id = definition.Match;
+            var id = requested.HardwareId;
             var rawMatches = snapshot.Monitors.Where(m =>
                 m.DevicePath.Contains(id, StringComparison.OrdinalIgnoreCase) ||
                 m.FriendlyName.Contains(id, StringComparison.OrdinalIgnoreCase)).ToList();

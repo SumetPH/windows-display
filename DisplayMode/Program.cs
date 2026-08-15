@@ -65,7 +65,7 @@ internal static class Program
                 return 2;
             }
 
-            if (!manager.TryResolveKnownMonitors(snapshot, out var monitors))
+            if (!manager.TryResolveKnownMonitors(profile, snapshot, out var monitors))
                 return 1;
             if (!parsed.DryRun && !parsed.ValidateOnly)
                 manager.CacheObservedTimings(snapshot);
