@@ -391,6 +391,8 @@ internal sealed class DisplayTopologyManager(bool verbose, DisplayModeConfigurat
             Console.WriteLine($"  {p.Alias} ({p.HardwareId}) {p.Width}x{p.Height} @{proposed.RefreshRates[p.HardwareId]} {orientation} ({p.X},{p.Y}){primary}{timing}");
             if (p.WallpaperPath is not null)
                 Console.WriteLine($"    Wallpaper: {p.WallpaperPath}");
+            else if (p.WallpaperFolder is not null)
+                Console.WriteLine($"    Wallpaper slideshow: {p.WallpaperFolder} every {p.SlideshowIntervalSeconds}s ({p.SlideshowOrder.ToString().ToLowerInvariant()})");
         }
         Console.WriteLine();
         Console.WriteLine("INACTIVE:");

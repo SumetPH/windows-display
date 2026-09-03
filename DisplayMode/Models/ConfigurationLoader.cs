@@ -1,4 +1,5 @@
 using System.Text.Json;
+using DisplayMode.Displays;
 using DisplayMode.Native;
 
 namespace DisplayMode.Models;
@@ -47,9 +48,18 @@ internal static class ConfigurationLoader
                     throw new InvalidDataException($"Profile '{name}' contains monitor '{monitor.Alias}' more than once.");
                 if (item.Width == 0 || item.Height == 0 || item.RefreshHz <= 0 || !double.IsFinite(item.RefreshHz))
                     throw new InvalidDataException($"Profile '{name}', monitor '{monitor.Alias}' has an invalid size or refresh rate.");
+                if (!string.IsNullOrWhiteSpace(item.Wallpaper) && !string.IsNullOrWhiteSpace(item.WallpaperFolder))
+                    throw new InvalidDataException(
+                        $"Profile '{name}', monitor '{monitor.Alias}' cannot use both wallpaper and wallpaperFolder.");
                 var wallpaperPath = ResolveWallpaperPath(item.Wallpaper, fullPath, name, monitor.Alias);
+                var wallpaperFolder = ResolveWallpaperFolder(item.WallpaperFolder, fullPath, name, monitor.Alias);
+                var slideshowInterval = item.SlideshowInterval ?? 300;
+                if (wallpaperFolder is not null && slideshowInterval < 60)
+                    throw new InvalidDataException(
+                        $"Profile '{name}', monitor '{monitor.Alias}' slideshowInterval must be at least 60 seconds.");
                 entries.Add(new MonitorProfile(monitor.Alias, monitor.Match, item.Width, item.Height, item.RefreshHz,
-                    ParseRotation(item.Rotation, name, monitor.Alias), item.X, item.Y, item.Primary, wallpaperPath));
+                    ParseRotation(item.Rotation, name, monitor.Alias), item.X, item.Y, item.Primary, wallpaperPath,
+                    wallpaperFolder, slideshowInterval, ParseSlideshowOrder(item.SlideshowOrder, name, monitor.Alias)));
             }
             ValidateLayout(name, entries);
             profiles.Add(name.Trim(), new DisplayProfile(name.Trim(), entries));
@@ -92,6 +102,45 @@ internal static class ConfigurationLoader
                 $"Profile '{profile}', monitor '{monitor}' has an invalid wallpaper path '{value}'.", ex);
         }
     }
+
+    private static string? ResolveWallpaperFolder(string? value, string configurationPath, string profile, string monitor)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        try
+        {
+            var expanded = Environment.ExpandEnvironmentVariables(value.Trim());
+            var directory = Path.GetDirectoryName(configurationPath)
+                            ?? throw new InvalidDataException("The configuration directory could not be determined.");
+            var fullPath = Path.GetFullPath(expanded, directory);
+            if (!Directory.Exists(fullPath))
+                throw new InvalidDataException(
+                    $"Profile '{profile}', monitor '{monitor}' wallpaper folder was not found: {fullPath}");
+            if (!DesktopWallpaperManager.HasSupportedImages(fullPath))
+                throw new InvalidDataException(
+                    $"Profile '{profile}', monitor '{monitor}' wallpaper folder contains no supported images: {fullPath}");
+            return fullPath;
+        }
+        catch (InvalidDataException)
+        {
+            throw;
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException or IOException or UnauthorizedAccessException)
+        {
+            throw new InvalidDataException(
+                $"Profile '{profile}', monitor '{monitor}' has an invalid wallpaperFolder path '{value}'.", ex);
+        }
+    }
+
+    private static SlideshowOrder ParseSlideshowOrder(string? value, string profile, string monitor) =>
+        (value ?? "random").Trim().ToLowerInvariant() switch
+        {
+            "random" => SlideshowOrder.Random,
+            "sequential" => SlideshowOrder.Sequential,
+            _ => throw new InvalidDataException(
+                $"Profile '{profile}', monitor '{monitor}' has unknown slideshowOrder '{value}'.")
+        };
 
     private static void ValidateLayout(string name, IReadOnlyList<MonitorProfile> entries)
     {
@@ -154,5 +203,8 @@ internal static class ConfigurationLoader
         public int Y { get; set; }
         public bool Primary { get; set; }
         public string? Wallpaper { get; set; }
+        public string? WallpaperFolder { get; set; }
+        public int? SlideshowInterval { get; set; }
+        public string? SlideshowOrder { get; set; }
     }
 }

@@ -14,7 +14,16 @@ internal sealed record MonitorProfile(
     int X,
     int Y,
     bool Primary,
-    string? WallpaperPath);
+    string? WallpaperPath,
+    string? WallpaperFolder,
+    int SlideshowIntervalSeconds,
+    SlideshowOrder SlideshowOrder);
+
+internal enum SlideshowOrder
+{
+    Random,
+    Sequential
+}
 
 internal sealed record DisplayProfile(string Name, IReadOnlyList<MonitorProfile> ActiveMonitors);
 

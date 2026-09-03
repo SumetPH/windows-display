@@ -19,7 +19,52 @@ internal static class DisplayModeClient
         return profiles.EnumerateObject().Select(p => p.Name).ToArray();
     }
 
+    internal static IReadOnlyDictionary<string, IReadOnlyList<SlideshowBinding>> LoadSlideshows(string configPath)
+    {
+        using var document = JsonDocument.Parse(File.ReadAllText(configPath), new JsonDocumentOptions
+        {
+            AllowTrailingCommas = true,
+            CommentHandling = JsonCommentHandling.Skip
+        });
+        var result = new Dictionary<string, IReadOnlyList<SlideshowBinding>>(StringComparer.OrdinalIgnoreCase);
+        if (!document.RootElement.TryGetProperty("profiles", out var profiles) || profiles.ValueKind != JsonValueKind.Object)
+            return result;
+
+        foreach (var profile in profiles.EnumerateObject())
+        {
+            var bindings = new List<SlideshowBinding>();
+            if (profile.Value.TryGetProperty("monitors", out var monitors) && monitors.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var monitor in monitors.EnumerateArray())
+                {
+                    if (!monitor.TryGetProperty("wallpaperFolder", out var folder) ||
+                        folder.ValueKind != JsonValueKind.String || string.IsNullOrWhiteSpace(folder.GetString()) ||
+                        !monitor.TryGetProperty("monitor", out var alias) || alias.ValueKind != JsonValueKind.String)
+                        continue;
+                    var interval = monitor.TryGetProperty("slideshowInterval", out var intervalElement) &&
+                                   intervalElement.TryGetInt32(out var configuredInterval)
+                        ? configuredInterval
+                        : 300;
+                    bindings.Add(new SlideshowBinding(alias.GetString()!, interval));
+                }
+            }
+            result[profile.Name] = bindings;
+        }
+        return result;
+    }
+
     internal static async Task<CommandResult> ApplyAsync(TraySettings settings, string profile)
+    {
+        return await RunAsync(settings, ["apply", profile]);
+    }
+
+    internal static async Task<CommandResult> AdvanceSlideshowAsync(TraySettings settings, string profile,
+        string monitorAlias)
+    {
+        return await RunAsync(settings, ["slideshow-next", profile, monitorAlias]);
+    }
+
+    private static async Task<CommandResult> RunAsync(TraySettings settings, IReadOnlyList<string> arguments)
     {
         if (!File.Exists(settings.DisplayModePath))
             return new CommandResult(-1, $"DisplayMode.exe was not found: {settings.DisplayModePath}");
@@ -34,8 +79,8 @@ internal static class DisplayModeClient
             RedirectStandardOutput = true,
             RedirectStandardError = true
         };
-        startInfo.ArgumentList.Add("apply");
-        startInfo.ArgumentList.Add(profile);
+        foreach (var argument in arguments)
+            startInfo.ArgumentList.Add(argument);
         startInfo.ArgumentList.Add("--config");
         startInfo.ArgumentList.Add(settings.ConfigPath);
 
@@ -51,3 +96,4 @@ internal static class DisplayModeClient
 }
 
 internal sealed record CommandResult(int ExitCode, string Output);
+internal sealed record SlideshowBinding(string MonitorAlias, int IntervalSeconds);

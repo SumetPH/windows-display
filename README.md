@@ -60,7 +60,9 @@
           "x": 0,
           "y": 0,
           "primary": true,
-          "wallpaper": "wallpapers\\main.jpg"
+          "wallpaperFolder": "%USERPROFILE%\\Pictures\\Wallpapers\\main",
+          "slideshowInterval": 300,
+          "slideshowOrder": "random"
         },
         {
           "monitor": "side",
@@ -85,6 +87,9 @@
 - พื้นที่จอต้องไม่ซ้อนและต้องแตะกันตามขอบ
 - `rotation` ใช้ `landscape`, `portrait`, `landscape-inverted` หรือ `portrait-inverted`
 - `wallpaper` ไม่บังคับ พาธ relative จะอิงจากโฟลเดอร์ของ config และรองรับ environment variable
+- `wallpaperFolder` ใช้ทำ slideshow แยกต่อจอ รองรับไฟล์ `.bmp`, `.jpeg`, `.jpg`, `.png` ในโฟลเดอร์โดยตรง
+- `slideshowInterval` คือช่วงเปลี่ยนภาพหน่วยวินาที ค่าต่ำสุด 60 และค่าเริ่มต้น 300 วินาที
+- `slideshowOrder` ใช้ `random` (ค่าเริ่มต้น) หรือ `sequential`; ห้ามกำหนด `wallpaper` และ `wallpaperFolder` พร้อมกันในจอเดียว
 - โปรแกรมตั้ง wallpaper หลัง topology สำเร็จเท่านั้น; `--dry-run` และ `--validate-only` จะไม่เปลี่ยนภาพ
 - Fill/Fit/Stretch เป็นค่ารวมของ Windows ไม่ใช่ค่ารายจอ โปรแกรมจึงคง style ปัจจุบันไว้
 - `allowUnmanagedTargets: false` ป้องกันการปิดจอที่ไม่ได้ประกาศโดยไม่ตั้งใจ
@@ -108,6 +113,8 @@
 ## Tray, startup และ hotkey
 
 เปิด `DisplayMode.App.exe` แล้วคลิกขวาที่ icon เพื่อเลือก profile, reload config, เปิด Settings หรือเปิด startup
+
+Slideshow จะทำงานเมื่อ apply profile ผ่าน Tray และหยุด/สลับชุดภาพอัตโนมัติเมื่อเลือก profile ใหม่ การ reload config จะหยุด slideshow เดิม ให้ apply profile อีกครั้งเพื่อเริ่มด้วยค่าที่ reload แล้ว ตัว Tray เก็บเฉพาะเวลาและรายชื่อจอ ส่วน CLI จะอ่านรายชื่อไฟล์จากโฟลเดอร์เมื่อถึงรอบ จึงไม่โหลดภาพทั้งหมดไว้ในหน่วยความจำ
 
 ดับเบิลคลิก icon เพื่อแก้ path และ global hotkey เช่น `Ctrl+Alt+3` หรือ `Win+Alt+G` hotkey ต้องมี modifier อย่างน้อยหนึ่งตัว การสลับที่เริ่มจาก Tray จะเรียก CLI แบบซ่อน console และป้องกันการสลับซ้อนกัน
 

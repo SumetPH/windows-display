@@ -22,7 +22,9 @@
           "x": 0,
           "y": 0,
           "primary": true,
-          "wallpaper": "wallpapers\\main.jpg"
+          "wallpaperFolder": "%USERPROFILE%\\Pictures\\Wallpapers\\Main",
+          "slideshowInterval": 300,
+          "slideshowOrder": "random"
         }
       ]
     },

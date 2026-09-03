@@ -59,6 +59,26 @@ internal static class Program
             }
             if (parsed.Command.Equals("capture", StringComparison.OrdinalIgnoreCase))
                 return manager.CaptureTimings(snapshot);
+            if (parsed.Command.Equals("slideshow-next", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!configuration.Profiles.TryGetValue(parsed.ProfileName!, out var slideshowProfile))
+                {
+                    Console.Error.WriteLine($"Unknown profile: {parsed.ProfileName}");
+                    return 2;
+                }
+                var monitorProfile = slideshowProfile.ActiveMonitors.FirstOrDefault(monitor =>
+                    monitor.Alias.Equals(parsed.MonitorAlias, StringComparison.OrdinalIgnoreCase));
+                if (monitorProfile is null)
+                {
+                    Console.Error.WriteLine(
+                        $"Profile '{slideshowProfile.Name}' does not contain monitor '{parsed.MonitorAlias}'.");
+                    return 2;
+                }
+                var singleMonitorProfile = new DisplayProfile(slideshowProfile.Name, [monitorProfile]);
+                if (!manager.TryResolveKnownMonitors(singleMonitorProfile, snapshot, out var slideshowMonitors))
+                    return 1;
+                return DesktopWallpaperManager.AdvanceSlideshow(monitorProfile, slideshowMonitors) ? 0 : 1;
+            }
 
             var profileName = parsed.Command.Equals("apply", StringComparison.OrdinalIgnoreCase)
                 ? parsed.ProfileName!
@@ -194,9 +214,10 @@ internal static class Program
             }
         }
 
-        if (dryRun && validateOnly || positional.Count is < 1 or > 2 ||
-            (positional[0].Equals("apply", StringComparison.OrdinalIgnoreCase) && positional.Count != 2) ||
-            (positional.Count == 2 && !positional[0].Equals("apply", StringComparison.OrdinalIgnoreCase)))
+        var validShape = positional.Count == 1 ||
+                         positional.Count == 2 && positional[0].Equals("apply", StringComparison.OrdinalIgnoreCase) ||
+                         positional.Count == 3 && positional[0].Equals("slideshow-next", StringComparison.OrdinalIgnoreCase);
+        if (dryRun && validateOnly || !validShape)
         {
             PrintUsage();
             return null;
@@ -205,14 +226,16 @@ internal static class Program
         var command = positional[0];
         var nonApply = command.Equals("list", StringComparison.OrdinalIgnoreCase) || command.Equals("status", StringComparison.OrdinalIgnoreCase) ||
                        command.Equals("capture", StringComparison.OrdinalIgnoreCase) || command.Equals("profiles", StringComparison.OrdinalIgnoreCase) ||
-                       command.Equals("config-check", StringComparison.OrdinalIgnoreCase) || command.Equals("config-path", StringComparison.OrdinalIgnoreCase);
+                       command.Equals("config-check", StringComparison.OrdinalIgnoreCase) || command.Equals("config-path", StringComparison.OrdinalIgnoreCase) ||
+                       command.Equals("slideshow-next", StringComparison.OrdinalIgnoreCase);
         if ((dryRun || validateOnly) && nonApply)
         {
             Console.Error.WriteLine("--dry-run and --validate-only are valid only when applying a profile.");
             return null;
         }
 
-        return new ParsedArguments(command, positional.Count == 2 ? positional[1] : null, configPath, verbose, dryRun, validateOnly);
+        return new ParsedArguments(command, positional.Count >= 2 ? positional[1] : null,
+            positional.Count == 3 ? positional[2] : null, configPath, verbose, dryRun, validateOnly);
     }
 
     private static void PrintConfiguration(DisplayModeConfiguration configuration)
@@ -236,6 +259,6 @@ internal static class Program
         Console.WriteLine("  Add --config <path> to use a different profiles.json file.");
     }
 
-    private sealed record ParsedArguments(string Command, string? ProfileName, string ConfigPath,
+    private sealed record ParsedArguments(string Command, string? ProfileName, string? MonitorAlias, string ConfigPath,
         bool Verbose, bool DryRun, bool ValidateOnly);
 }

@@ -12,8 +12,11 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private readonly Icon appIcon = AppIcon.Load();
     private readonly HotKeyManager hotKeys = new();
     private readonly SemaphoreSlim switchLock = new(1, 1);
+    private readonly SlideshowScheduler slideshowScheduler;
     private TraySettings settings = TraySettings.Load();
     private IReadOnlyList<string> profiles = [];
+    private IReadOnlyDictionary<string, IReadOnlyList<SlideshowBinding>> slideshows =
+        new Dictionary<string, IReadOnlyList<SlideshowBinding>>(StringComparer.OrdinalIgnoreCase);
 
     internal TrayApplicationContext()
     {
@@ -24,6 +27,9 @@ internal sealed class TrayApplicationContext : ApplicationContext
             Visible = true
         };
         notifyIcon.DoubleClick += (_, _) => ShowSettings();
+        slideshowScheduler = new SlideshowScheduler(
+            (profile, monitor) => DisplayModeClient.AdvanceSlideshowAsync(settings, profile, monitor),
+            message => Notify(message, ToolTipIcon.Error));
         Reload(showSuccess: false);
     }
 
@@ -32,6 +38,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
         try
         {
             profiles = DisplayModeClient.LoadProfiles(settings.ConfigPath);
+            slideshows = DisplayModeClient.LoadSlideshows(settings.ConfigPath);
+            slideshowScheduler.Stop();
             try
             {
                 RegisterHotKeys();
@@ -48,6 +56,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
         catch (Exception ex)
         {
             profiles = [];
+            slideshows = new Dictionary<string, IReadOnlyList<SlideshowBinding>>(StringComparer.OrdinalIgnoreCase);
+            slideshowScheduler.Stop();
             hotKeys.Clear();
             BuildMenu();
             Notify($"Configuration error: {ex.Message}", ToolTipIcon.Error);
@@ -114,13 +124,18 @@ internal sealed class TrayApplicationContext : ApplicationContext
         }
         try
         {
+            slideshowScheduler.Stop();
             notifyIcon.Text = $"DisplayMode - applying {profile}";
             Notify($"Switching to profile '{profile}'...", ToolTipIcon.Info);
             var result = await DisplayModeClient.ApplyAsync(settings, profile);
             if (result.ExitCode == 0)
+            {
+                if (slideshows.TryGetValue(profile, out var bindings))
+                    slideshowScheduler.Activate(profile, bindings);
                 // With no stock status glyph, Windows uses the application's
                 // tray icon for a successful display-mode notification.
                 Notify($"Profile '{profile}' applied successfully.", ToolTipIcon.None);
+            }
             else
             {
                 Notify(FormatApplyError(profile, result), ToolTipIcon.Error);
@@ -216,6 +231,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     protected override void ExitThreadCore()
     {
         hotKeys.Dispose();
+        slideshowScheduler.Dispose();
         switchLock.Dispose();
         notifyIcon.Visible = false;
         notifyIcon.Dispose();
