@@ -31,6 +31,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             (profile, monitor) => DisplayModeClient.AdvanceSlideshowAsync(settings, profile, monitor),
             message => Notify(message, ToolTipIcon.Error));
         Reload(showSuccess: false);
+        ResumeSlideshow();
     }
 
     private void Reload(bool showSuccess)
@@ -130,6 +131,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             var result = await DisplayModeClient.ApplyAsync(settings, profile);
             if (result.ExitCode == 0)
             {
+                RememberAppliedProfile(profile);
                 if (slideshows.TryGetValue(profile, out var bindings))
                     slideshowScheduler.Activate(profile, bindings);
                 // With no stock status glyph, Windows uses the application's
@@ -149,6 +151,33 @@ internal sealed class TrayApplicationContext : ApplicationContext
         {
             notifyIcon.Text = "DisplayMode";
             switchLock.Release();
+        }
+    }
+
+    private void ResumeSlideshow()
+    {
+        if (string.IsNullOrWhiteSpace(settings.LastAppliedProfile))
+            return;
+
+        var profile = profiles.FirstOrDefault(configuredProfile =>
+            configuredProfile.Equals(settings.LastAppliedProfile, StringComparison.OrdinalIgnoreCase));
+        if (profile is not null && slideshows.TryGetValue(profile, out var bindings))
+            slideshowScheduler.Activate(profile, bindings);
+    }
+
+    private void RememberAppliedProfile(string profile)
+    {
+        if (profile.Equals(settings.LastAppliedProfile, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        settings.LastAppliedProfile = profile;
+        try
+        {
+            settings.Save();
+        }
+        catch (Exception ex)
+        {
+            Notify($"Could not remember the active profile: {ex.Message}", ToolTipIcon.Warning);
         }
     }
 
