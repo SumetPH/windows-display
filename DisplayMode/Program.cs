@@ -46,7 +46,7 @@ internal static class Program
             if (parsed.Verbose)
                 DisplayTopologyManager.PrintInteropSizes();
 
-            var snapshot = manager.Discover();
+            var snapshot = manager.Discover(announce: !parsed.Command.Equals("active-profile", StringComparison.OrdinalIgnoreCase));
             if (parsed.Command.Equals("list", StringComparison.OrdinalIgnoreCase))
             {
                 manager.PrintMonitors(snapshot, activeOnly: false);
@@ -55,6 +55,13 @@ internal static class Program
             if (parsed.Command.Equals("status", StringComparison.OrdinalIgnoreCase))
             {
                 manager.PrintMonitors(snapshot, activeOnly: true);
+                return 0;
+            }
+            if (parsed.Command.Equals("active-profile", StringComparison.OrdinalIgnoreCase))
+            {
+                var activeProfile = DisplayTopologyManager.FindExactActiveProfile(configuration.Profiles.Values, snapshot);
+                if (activeProfile is not null)
+                    Console.WriteLine(activeProfile.Name);
                 return 0;
             }
             if (parsed.Command.Equals("capture", StringComparison.OrdinalIgnoreCase))
@@ -225,6 +232,7 @@ internal static class Program
 
         var command = positional[0];
         var nonApply = command.Equals("list", StringComparison.OrdinalIgnoreCase) || command.Equals("status", StringComparison.OrdinalIgnoreCase) ||
+                       command.Equals("active-profile", StringComparison.OrdinalIgnoreCase) ||
                        command.Equals("capture", StringComparison.OrdinalIgnoreCase) || command.Equals("profiles", StringComparison.OrdinalIgnoreCase) ||
                        command.Equals("config-check", StringComparison.OrdinalIgnoreCase) || command.Equals("config-path", StringComparison.OrdinalIgnoreCase) ||
                        command.Equals("slideshow-next", StringComparison.OrdinalIgnoreCase);
@@ -255,7 +263,7 @@ internal static class Program
         Console.WriteLine("Usage:");
         Console.WriteLine("  DisplayMode.exe <profile> [--dry-run | --validate-only] [--verbose]");
         Console.WriteLine("  DisplayMode.exe apply <profile> [--dry-run | --validate-only] [--verbose]");
-        Console.WriteLine("  DisplayMode.exe list | status | capture | profiles | config-check | config-path");
+        Console.WriteLine("  DisplayMode.exe list | status | active-profile | capture | profiles | config-check | config-path");
         Console.WriteLine("  Add --config <path> to use a different profiles.json file.");
     }
 

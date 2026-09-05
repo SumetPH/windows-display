@@ -114,7 +114,7 @@
 
 เปิด `DisplayMode.App.exe` แล้วคลิกขวาที่ icon เพื่อเลือก profile, reload config, เปิด Settings หรือเปิด startup
 
-Slideshow จะทำงานเมื่อ apply profile ผ่าน Tray และจะกลับมาทำงานกับ profile ล่าสุดเมื่อ Tray เริ่มจาก Windows startup อีกครั้ง โดยจะหยุด/สลับชุดภาพอัตโนมัติเมื่อเลือก profile ใหม่ การ reload config จะหยุด slideshow เดิม ให้ apply profile อีกครั้งเพื่อเริ่มด้วยค่าที่ reload แล้ว ตัว Tray เก็บเฉพาะเวลาและรายชื่อจอ ส่วน CLI จะอ่านรายชื่อไฟล์จากโฟลเดอร์เมื่อถึงรอบ จึงไม่โหลดภาพทั้งหมดไว้ในหน่วยความจำ
+Slideshow จะทำงานเมื่อ apply profile ผ่าน Tray และเมื่อ Tray เริ่มจาก Windows startup จะตรวจชุดจอที่ active อยู่ก่อน แล้วเริ่ม slideshow เฉพาะ profile ที่ตรงกัน จึงไม่พยายามเปลี่ยนภาพของจอที่ถอดออกไปแล้ว ระบบจะหยุด/สลับชุดภาพอัตโนมัติเมื่อเลือก profile ใหม่ การ reload config จะหยุด slideshow เดิม ให้ apply profile อีกครั้งเพื่อเริ่มด้วยค่าที่ reload แล้ว ตัว Tray เก็บเฉพาะเวลาและรายชื่อจอ ส่วน CLI จะอ่านรายชื่อไฟล์จากโฟลเดอร์เมื่อถึงรอบ จึงไม่โหลดภาพทั้งหมดไว้ในหน่วยความจำ
 
 ดับเบิลคลิก icon เพื่อแก้ path และ global hotkey เช่น `Ctrl+Alt+3` หรือ `Win+Alt+G` hotkey ต้องมี modifier อย่างน้อยหนึ่งตัว การสลับที่เริ่มจาก Tray จะเรียก CLI แบบซ่อน console และป้องกันการสลับซ้อนกัน
 

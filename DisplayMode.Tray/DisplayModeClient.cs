@@ -64,6 +64,11 @@ internal static class DisplayModeClient
         return await RunAsync(settings, ["slideshow-next", profile, monitorAlias]);
     }
 
+    internal static async Task<CommandResult> GetActiveProfileAsync(TraySettings settings)
+    {
+        return await RunAsync(settings, ["active-profile"]);
+    }
+
     private static async Task<CommandResult> RunAsync(TraySettings settings, IReadOnlyList<string> arguments)
     {
         if (!File.Exists(settings.DisplayModePath))

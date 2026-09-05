@@ -12,8 +12,6 @@ internal sealed class TraySettings
         new() { Profile = "2", Shortcut = "Alt+Shift+2" },
         new() { Profile = "3", Shortcut = "Alt+Shift+3" }
     ];
-    public string? LastAppliedProfile { get; set; }
-
     internal static string SettingsPath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "DisplayMode", "tray-settings.json");

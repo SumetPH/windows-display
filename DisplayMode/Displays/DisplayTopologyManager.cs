@@ -87,6 +87,18 @@ internal sealed class DisplayTopologyManager(bool verbose, DisplayModeConfigurat
         profile.ActiveMonitors.All(requested => snapshot.Monitors.Any(monitor =>
             monitor.Active && requested.HardwareId.Equals(monitor.HardwareId, StringComparison.OrdinalIgnoreCase)));
 
+    internal static DisplayProfile? FindExactActiveProfile(IEnumerable<DisplayProfile> profiles,
+        DisplaySnapshot snapshot)
+    {
+        var activeMonitors = snapshot.Monitors.Where(monitor => monitor.Active).ToArray();
+        var matches = profiles.Where(profile =>
+            profile.ActiveMonitors.Count == activeMonitors.Length &&
+            profile.ActiveMonitors.All(requested => activeMonitors.Any(monitor =>
+                requested.HardwareId.Equals(monitor.HardwareId, StringComparison.OrdinalIgnoreCase)))).Take(2).ToArray();
+
+        return matches.Length == 1 ? matches[0] : null;
+    }
+
     internal ProposedTopology Build(DisplayProfile profile, DisplaySnapshot snapshot, Dictionary<string, MonitorInfo> monitors)
     {
         var selectedPaths = new List<DisplayConfigPathInfo>();

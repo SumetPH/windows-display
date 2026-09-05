@@ -14,6 +14,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private readonly SemaphoreSlim switchLock = new(1, 1);
     private readonly SlideshowScheduler slideshowScheduler;
     private TraySettings settings = TraySettings.Load();
+    private int slideshowActivationGeneration;
     private IReadOnlyList<string> profiles = [];
     private IReadOnlyDictionary<string, IReadOnlyList<SlideshowBinding>> slideshows =
         new Dictionary<string, IReadOnlyList<SlideshowBinding>>(StringComparer.OrdinalIgnoreCase);
@@ -31,11 +32,12 @@ internal sealed class TrayApplicationContext : ApplicationContext
             (profile, monitor) => DisplayModeClient.AdvanceSlideshowAsync(settings, profile, monitor),
             message => Notify(message, ToolTipIcon.Error));
         Reload(showSuccess: false);
-        ResumeSlideshow();
+        _ = ResumeSlideshowAsync();
     }
 
     private void Reload(bool showSuccess)
     {
+        slideshowActivationGeneration++;
         try
         {
             profiles = DisplayModeClient.LoadProfiles(settings.ConfigPath);
@@ -125,13 +127,13 @@ internal sealed class TrayApplicationContext : ApplicationContext
         }
         try
         {
+            slideshowActivationGeneration++;
             slideshowScheduler.Stop();
             notifyIcon.Text = $"DisplayMode - applying {profile}";
             Notify($"Switching to profile '{profile}'...", ToolTipIcon.Info);
             var result = await DisplayModeClient.ApplyAsync(settings, profile);
             if (result.ExitCode == 0)
             {
-                RememberAppliedProfile(profile);
                 if (slideshows.TryGetValue(profile, out var bindings))
                     slideshowScheduler.Activate(profile, bindings);
                 // With no stock status glyph, Windows uses the application's
@@ -154,31 +156,17 @@ internal sealed class TrayApplicationContext : ApplicationContext
         }
     }
 
-    private void ResumeSlideshow()
+    private async Task ResumeSlideshowAsync()
     {
-        if (string.IsNullOrWhiteSpace(settings.LastAppliedProfile))
+        var generation = slideshowActivationGeneration;
+        var result = await DisplayModeClient.GetActiveProfileAsync(settings);
+        if (generation != slideshowActivationGeneration || result.ExitCode != 0)
             return;
 
-        var profile = profiles.FirstOrDefault(configuredProfile =>
-            configuredProfile.Equals(settings.LastAppliedProfile, StringComparison.OrdinalIgnoreCase));
-        if (profile is not null && slideshows.TryGetValue(profile, out var bindings))
+        var profile = result.Output.Trim();
+        if (profiles.Contains(profile, StringComparer.OrdinalIgnoreCase) &&
+            slideshows.TryGetValue(profile, out var bindings))
             slideshowScheduler.Activate(profile, bindings);
-    }
-
-    private void RememberAppliedProfile(string profile)
-    {
-        if (profile.Equals(settings.LastAppliedProfile, StringComparison.OrdinalIgnoreCase))
-            return;
-
-        settings.LastAppliedProfile = profile;
-        try
-        {
-            settings.Save();
-        }
-        catch (Exception ex)
-        {
-            Notify($"Could not remember the active profile: {ex.Message}", ToolTipIcon.Warning);
-        }
     }
 
     private void ShowSettings()
