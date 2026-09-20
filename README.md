@@ -45,20 +45,30 @@
   "schemaVersion": 1,
   "allowUnmanagedTargets": false,
   "monitors": {
-    "main": { "match": "DELA274" },
-    "side": { "match": "GSM5BD2" }
+    "main": {
+      "match": "DELA274",
+      "width": 3840,
+      "height": 2160,
+      "refreshHz": 120,
+      "rotation": "landscape",
+      "x": 0,
+      "y": 0
+    },
+    "side": {
+      "match": "GSM5BD2",
+      "width": 1440,
+      "height": 2560,
+      "refreshHz": 120,
+      "rotation": "portrait",
+      "x": -1440,
+      "y": 0
+    }
   },
   "profiles": {
     "Work": {
       "monitors": [
         {
           "monitor": "main",
-          "width": 3840,
-          "height": 2160,
-          "refreshHz": 120,
-          "rotation": "landscape",
-          "x": 0,
-          "y": 0,
           "primary": true,
           "wallpaperFolder": "%USERPROFILE%\\Pictures\\Wallpapers\\main",
           "slideshowInterval": 300,
@@ -66,12 +76,6 @@
         },
         {
           "monitor": "side",
-          "width": 1440,
-          "height": 2560,
-          "refreshHz": 120,
-          "rotation": "portrait",
-          "x": -1440,
-          "y": 0,
           "primary": false,
           "wallpaper": "%USERPROFILE%\\Pictures\\side.png"
         }
@@ -85,6 +89,7 @@
 
 - ต้องมี primary หนึ่งจอและอยู่ที่ `(0,0)`
 - พื้นที่จอต้องไม่ซ้อนและต้องแตะกันตามขอบ
+- `width`, `height`, `refreshHz`, `rotation`, `x` และ `y` กำหนดครั้งเดียวใน `monitors`; ในแต่ละ profile ระบุเฉพาะจอที่เปิดใช้และค่าของ profile เช่น `primary` หรือ wallpaper
 - `rotation` ใช้ `landscape`, `portrait`, `landscape-inverted` หรือ `portrait-inverted`
 - `wallpaper` ไม่บังคับ พาธ relative จะอิงจากโฟลเดอร์ของ config และรองรับ environment variable
 - `wallpaperFolder` ใช้ทำ slideshow แยกต่อจอ รองรับไฟล์ `.bmp`, `.jpeg`, `.jpg`, `.png` ในโฟลเดอร์โดยตรง

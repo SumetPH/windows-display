@@ -30,7 +30,11 @@ internal static class ConfigurationLoader
                 throw new InvalidDataException("Monitor aliases and match strings cannot be empty.");
             if (!matches.Add(value.Match.Trim()))
                 throw new InvalidDataException($"Monitor match '{value.Match}' is used more than once.");
-            monitors.Add(alias.Trim(), new MonitorDefinition(alias.Trim(), value.Match.Trim()));
+            var monitorAlias = alias.Trim();
+            if (value.Width == 0 || value.Height == 0 || value.RefreshHz <= 0 || !double.IsFinite(value.RefreshHz))
+                throw new InvalidDataException($"Monitor '{monitorAlias}' has an invalid size or refresh rate.");
+            monitors.Add(monitorAlias, new MonitorDefinition(monitorAlias, value.Match.Trim(), value.Width, value.Height,
+                value.RefreshHz, ParseRotation(value.Rotation, monitorAlias, monitorAlias), value.X, value.Y));
         }
 
         var profiles = new Dictionary<string, DisplayProfile>(StringComparer.OrdinalIgnoreCase);
@@ -46,8 +50,6 @@ internal static class ConfigurationLoader
                     throw new InvalidDataException($"Profile '{name}' references unknown monitor alias '{item.Monitor}'.");
                 if (!seen.Add(monitor.Alias))
                     throw new InvalidDataException($"Profile '{name}' contains monitor '{monitor.Alias}' more than once.");
-                if (item.Width == 0 || item.Height == 0 || item.RefreshHz <= 0 || !double.IsFinite(item.RefreshHz))
-                    throw new InvalidDataException($"Profile '{name}', monitor '{monitor.Alias}' has an invalid size or refresh rate.");
                 if (!string.IsNullOrWhiteSpace(item.Wallpaper) && !string.IsNullOrWhiteSpace(item.WallpaperFolder))
                     throw new InvalidDataException(
                         $"Profile '{name}', monitor '{monitor.Alias}' cannot use both wallpaper and wallpaperFolder.");
@@ -57,8 +59,8 @@ internal static class ConfigurationLoader
                 if (wallpaperFolder is not null && slideshowInterval < 60)
                     throw new InvalidDataException(
                         $"Profile '{name}', monitor '{monitor.Alias}' slideshowInterval must be at least 60 seconds.");
-                entries.Add(new MonitorProfile(monitor.Alias, monitor.Match, item.Width, item.Height, item.RefreshHz,
-                    ParseRotation(item.Rotation, name, monitor.Alias), item.X, item.Y, item.Primary, wallpaperPath,
+                entries.Add(new MonitorProfile(monitor.Alias, monitor.Match, monitor.Width, monitor.Height, monitor.RefreshHz,
+                    monitor.Rotation, monitor.X, monitor.Y, item.Primary, wallpaperPath,
                     wallpaperFolder, slideshowInterval, ParseSlideshowOrder(item.SlideshowOrder, name, monitor.Alias)));
             }
             ValidateLayout(name, entries);
@@ -190,17 +192,20 @@ internal static class ConfigurationLoader
         public Dictionary<string, MonitorDocument> Monitors { get; set; } = new();
         public Dictionary<string, ProfileDocument> Profiles { get; set; } = new();
     }
-    private sealed class MonitorDocument { public string Match { get; set; } = string.Empty; }
-    private sealed class ProfileDocument { public List<ProfileMonitorDocument> Monitors { get; set; } = []; }
-    private sealed class ProfileMonitorDocument
+    private sealed class MonitorDocument
     {
-        public string Monitor { get; set; } = string.Empty;
+        public string Match { get; set; } = string.Empty;
         public uint Width { get; set; }
         public uint Height { get; set; }
         public double RefreshHz { get; set; }
         public string Rotation { get; set; } = "landscape";
         public int X { get; set; }
         public int Y { get; set; }
+    }
+    private sealed class ProfileDocument { public List<ProfileMonitorDocument> Monitors { get; set; } = []; }
+    private sealed class ProfileMonitorDocument
+    {
+        public string Monitor { get; set; } = string.Empty;
         public bool Primary { get; set; }
         public string? Wallpaper { get; set; }
         public string? WallpaperFolder { get; set; }

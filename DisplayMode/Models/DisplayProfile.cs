@@ -2,7 +2,15 @@ using DisplayMode.Native;
 
 namespace DisplayMode.Models;
 
-internal sealed record MonitorDefinition(string Alias, string Match);
+internal sealed record MonitorDefinition(
+    string Alias,
+    string Match,
+    uint Width,
+    uint Height,
+    double RefreshHz,
+    DisplayConfigRotation Rotation,
+    int X,
+    int Y);
 
 internal sealed record MonitorProfile(
     string Alias,

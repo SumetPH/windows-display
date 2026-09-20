@@ -2,32 +2,44 @@
   "schemaVersion": 1,
   "allowUnmanagedTargets": false,
   "monitors": {
-    "lg": { "match": "GSM5BD2" },
-    "tv": { "match": "HEC002F" },
-    "dell": { "match": "DELA274" }
+    "lg": {
+      "match": "GSM5BD2",
+      "width": 1440,
+      "height": 2560,
+      "refreshHz": 120,
+      "rotation": "portrait",
+      "x": -1440,
+      "y": 0
+    },
+    "tv": {
+      "match": "HEC002F",
+      "width": 3840,
+      "height": 2160,
+      "refreshHz": 60,
+      "rotation": "landscape",
+      "x": 0,
+      "y": 0
+    },
+    "dell": {
+      "match": "DELA274",
+      "width": 3840,
+      "height": 2160,
+      "refreshHz": 120,
+      "rotation": "landscape",
+      "x": 0,
+      "y": 0
+    }
   },
   "profiles": {
     "Extend": {
       "monitors": [
         {
           "monitor": "dell",
-          "width": 3840,
-          "height": 2160,
-          "refreshHz": 120,
-          "rotation": "landscape",
-          "x": 0,
-          "y": 0,
           "primary": true,
           "wallpaper": "D:\\Images\\WuWa Wallpaper\\monitor-3.jpg"
         },
         {
           "monitor": "lg",
-          "width": 1440,
-          "height": 2560,
-          "refreshHz": 120,
-          "rotation": "portrait",
-          "x": -1440,
-          "y": 0,
           "primary": false,
           "wallpaper": "D:\\Images\\WuWa Wallpaper\\monitor-1.png"
         }
@@ -37,12 +49,6 @@
       "monitors": [
         {
           "monitor": "tv",
-          "width": 3840,
-          "height": 2160,
-          "refreshHz": 60,
-          "rotation": "landscape",
-          "x": 0,
-          "y": 0,
           "primary": true,
           "wallpaper": "D:\\Images\\WuWa Wallpaper\\monitor-2.jpg"
         }
@@ -52,12 +58,6 @@
       "monitors": [
         {
           "monitor": "dell",
-          "width": 3840,
-          "height": 2160,
-          "refreshHz": 120,
-          "rotation": "landscape",
-          "x": 0,
-          "y": 0,
           "primary": true,
           "wallpaper": "D:\\Images\\WuWa Wallpaper\\monitor-3.jpg"
         }
