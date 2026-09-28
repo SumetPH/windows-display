@@ -8,9 +8,12 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private const string StartupKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
     private const string StartupValue = "DisplayMode";
     private const string LegacyStartupValue = "DisplayMode.Tray";
+    private const int DisplayChangeQuietMilliseconds = 4_000;
+    private const int OwnApplySuppressMilliseconds = 3_000;
     private readonly NotifyIcon notifyIcon;
     private readonly Icon appIcon = AppIcon.Load();
     private readonly HotKeyManager hotKeys = new();
+    private readonly DisplayChangeWatcher displayWatcher = new(DisplayChangeQuietMilliseconds);
     private readonly SemaphoreSlim switchLock = new(1, 1);
     private readonly SlideshowScheduler slideshowScheduler;
     private TraySettings settings = TraySettings.Load();
@@ -31,6 +34,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         slideshowScheduler = new SlideshowScheduler(
             (profile, monitor) => DisplayModeClient.AdvanceSlideshowAsync(settings, profile, monitor),
             message => Notify(message, ToolTipIcon.Error));
+        displayWatcher.Settled += () => _ = ReapplyAfterDisplayChangeAsync();
         Reload(showSuccess: false);
         _ = ResumeSlideshowAsync();
     }
@@ -96,7 +100,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
             menu.Items.Add(new ToolStripMenuItem("(no profiles loaded)") { Enabled = false });
 
         menu.Items.Add(new ToolStripSeparator());
-        var startup = new ToolStripMenuItem("Run at startup") { Checked = IsStartupEnabled(), CheckOnClick = true };
+        menu.Items.Add(BuildReapplyMenu());
+        var startup =new ToolStripMenuItem("Run at startup") { Checked = IsStartupEnabled(), CheckOnClick = true };
         startup.Click += (_, _) =>
         {
             try { SetStartup(startup.Checked); }
@@ -116,6 +121,56 @@ internal sealed class TrayApplicationContext : ApplicationContext
         var previous = notifyIcon.ContextMenuStrip;
         notifyIcon.ContextMenuStrip = menu;
         previous?.Dispose();
+    }
+
+    private ToolStripMenuItem BuildReapplyMenu()
+    {
+        var parent = new ToolStripMenuItem("Re-apply after display change")
+        {
+            ToolTipText = "When Windows switches to one of these profiles by itself (for example when a TV " +
+                          "is turned on), apply it again once the displays settle."
+        };
+        foreach (var profile in profiles)
+        {
+            var item = new ToolStripMenuItem(profile)
+            {
+                CheckOnClick = true,
+                Checked = settings.ReapplyOnDisplayChange.Contains(profile, StringComparer.OrdinalIgnoreCase)
+            };
+            item.Click += (_, _) =>
+            {
+                settings.ReapplyOnDisplayChange.RemoveAll(p => p.Equals(profile, StringComparison.OrdinalIgnoreCase));
+                if (item.Checked)
+                    settings.ReapplyOnDisplayChange.Add(profile);
+                try { settings.Save(); }
+                catch (Exception ex) { Notify($"Could not save settings: {ex.Message}", ToolTipIcon.Error); }
+            };
+            parent.DropDownItems.Add(item);
+        }
+        parent.Enabled = profiles.Count > 0;
+        return parent;
+    }
+
+    private async Task ReapplyAfterDisplayChangeAsync()
+    {
+        if (settings.ReapplyOnDisplayChange.Count == 0 || switchLock.CurrentCount == 0)
+            return;
+
+        CommandResult result;
+        try { result = await DisplayModeClient.GetActiveProfileAsync(settings); }
+        catch { return; }
+        if (result.ExitCode != 0)
+            return;
+        var active = result.Output.Trim();
+        var profile = profiles.FirstOrDefault(p => p.Equals(active, StringComparison.OrdinalIgnoreCase));
+        if (profile is null ||
+            !settings.ReapplyOnDisplayChange.Contains(profile, StringComparer.OrdinalIgnoreCase))
+            return;
+
+        // Windows restores a saved topology the moment a TV hot-plugs, often before the TV
+        // can show a picture. Applying the same profile again once the link has settled is
+        // what a manual re-select does, and it is harmless when the picture is already fine.
+        await ApplyProfileAsync(profile);
     }
 
     private async Task ApplyProfileAsync(string profile)
@@ -151,6 +206,9 @@ internal sealed class TrayApplicationContext : ApplicationContext
         }
         finally
         {
+            // Our own SetDisplayConfig raises WM_DISPLAYCHANGE too; reacting to it would
+            // re-apply in a loop.
+            displayWatcher.Suppress(OwnApplySuppressMilliseconds);
             notifyIcon.Text = "DisplayMode";
             switchLock.Release();
         }
@@ -248,6 +306,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     protected override void ExitThreadCore()
     {
         hotKeys.Dispose();
+        displayWatcher.Dispose();
         slideshowScheduler.Dispose();
         switchLock.Dispose();
         notifyIcon.Visible = false;

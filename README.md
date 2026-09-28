@@ -121,6 +121,8 @@
 
 Slideshow จะทำงานเมื่อ apply profile ผ่าน Tray และเมื่อ Tray เริ่มจาก Windows startup จะตรวจชุดจอที่ active อยู่ก่อน แล้วเริ่ม slideshow เฉพาะ profile ที่ตรงกัน จึงไม่พยายามเปลี่ยนภาพของจอที่ถอดออกไปแล้ว ระบบจะหยุด/สลับชุดภาพอัตโนมัติเมื่อเลือก profile ใหม่ การ reload config จะหยุด slideshow เดิม ให้ apply profile อีกครั้งเพื่อเริ่มด้วยค่าที่ reload แล้ว ตัว Tray เก็บเฉพาะเวลาและรายชื่อจอ ส่วน CLI จะอ่านรายชื่อไฟล์จากโฟลเดอร์เมื่อถึงรอบ จึงไม่โหลดภาพทั้งหมดไว้ในหน่วยความจำ
 
+เมนู **Re-apply after display change** ใช้แก้กรณีจอติดดับหลัง Windows สลับ topology เอง เช่น เปิด TV แล้ว Windows ดึง layout "TV อย่างเดียว" ที่เคยบันทึกไว้กลับมาใช้ขณะที่ TV ยังไม่พร้อม ติ๊ก profile ที่ต้องการไว้ เมื่อจอเปลี่ยนแล้วนิ่งไปประมาณ 4 วินาที และ topology ที่ active ตรงกับ profile นั้น Tray จะ apply profile นั้นซ้ำให้หนึ่งครั้ง การเปลี่ยนจอที่เกิดจากการ apply ของ Tray เองจะไม่ถูกนับ จึงไม่วนซ้ำ ค่าที่เลือกเก็บใน `reapplyOnDisplayChange` ของ `tray-settings.json`
+
 ดับเบิลคลิก icon เพื่อแก้ path และ global hotkey เช่น `Ctrl+Alt+3` หรือ `Win+Alt+G` hotkey ต้องมี modifier อย่างน้อยหนึ่งตัว การสลับที่เริ่มจาก Tray จะเรียก CLI แบบซ่อน console และป้องกันการสลับซ้อนกัน
 
 ค่าของ Tray เก็บที่:

@@ -140,7 +140,8 @@ internal sealed class SettingsForm : Form
             {
                 DisplayModePath = Path.GetFullPath(executablePath.Text),
                 ConfigPath = Path.GetFullPath(configPath.Text),
-                HotKeys = bindings
+                HotKeys = bindings,
+                ReapplyOnDisplayChange = ResultSettings.ReapplyOnDisplayChange
             };
             DialogResult = DialogResult.OK;
             Close();
