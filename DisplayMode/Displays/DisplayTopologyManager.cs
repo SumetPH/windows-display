@@ -6,6 +6,10 @@ namespace DisplayMode.Displays;
 internal sealed class DisplayTopologyManager(bool verbose, DisplayModeConfiguration configuration)
 {
     private DisplaySnapshot? lastSnapshot;
+
+    // Set once Windows has accepted an apply, so a rollback is only attempted when the
+    // topology may actually differ from the one captured before the request.
+    internal bool TopologyChanged { get; private set; }
     private readonly TargetTimingStore timingStore = CreateTimingStore(verbose);
 
     private static TargetTimingStore CreateTimingStore(bool verbose)
@@ -252,8 +256,25 @@ internal sealed class DisplayTopologyManager(bool verbose, DisplayModeConfigurat
         if (result != DisplayConfigConstants.ErrorSuccess)
             return ReportSetError("Apply", result, modeName);
 
+        TopologyChanged = true;
         Console.WriteLine("Success.");
         return DesktopWallpaperManager.Apply(topology.Profiles, topology.Monitors) ? 0 : 1;
+    }
+
+    internal static bool Restore(DisplayConfigPathInfo[] paths, DisplayConfigModeInfo[] modes)
+    {
+        Console.WriteLine("Rolling back to the previous display configuration...");
+        var flags = SetDisplayConfigFlags.Apply | SetDisplayConfigFlags.UseSuppliedDisplayConfig |
+                    SetDisplayConfigFlags.SaveToDatabase | SetDisplayConfigFlags.AllowChanges;
+        var result = DisplayConfigNative.SetDisplayConfig((uint)paths.Length, paths,
+            (uint)modes.Length, ModesOrNull(modes), flags);
+        if (result != DisplayConfigConstants.ErrorSuccess)
+        {
+            Console.Error.WriteLine($"ERROR: Rollback failed: {DisplayDiscovery.ErrorText(result)}");
+            return false;
+        }
+        Console.WriteLine("Rolled back to the previous display configuration.");
+        return true;
     }
 
     internal void PrintMonitors(DisplaySnapshot snapshot, bool activeOnly)

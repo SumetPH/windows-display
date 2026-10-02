@@ -5,7 +5,7 @@ internal static class Program
     private const string MutexName = "Local\\DisplayMode.Tray.SingleInstance";
 
     [STAThread]
-    private static void Main()
+    private static void Main(string[] args)
     {
         using var mutex = new Mutex(true, MutexName, out var createdNew);
         if (!createdNew)
@@ -16,7 +16,8 @@ internal static class Program
         }
 
         ApplicationConfiguration.Initialize();
-        Application.Run(new TrayApplicationContext());
+        var launchedAtStartup = args.Contains(TrayApplicationContext.StartupArgument, StringComparer.OrdinalIgnoreCase);
+        Application.Run(new TrayApplicationContext(launchedAtStartup));
         GC.KeepAlive(mutex);
     }
 }

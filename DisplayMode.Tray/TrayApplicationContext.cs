@@ -8,6 +8,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private const string StartupKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
     private const string StartupValue = "DisplayMode";
     private const string LegacyStartupValue = "DisplayMode.Tray";
+    internal const string StartupArgument = "--startup";
     private const int DisplayChangeQuietMilliseconds = 4_000;
     private const int OwnApplySuppressMilliseconds = 3_000;
     private readonly NotifyIcon notifyIcon;
@@ -22,7 +23,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private IReadOnlyDictionary<string, IReadOnlyList<SlideshowBinding>> slideshows =
         new Dictionary<string, IReadOnlyList<SlideshowBinding>>(StringComparer.OrdinalIgnoreCase);
 
-    internal TrayApplicationContext()
+    internal TrayApplicationContext(bool launchedAtStartup)
     {
         notifyIcon = new NotifyIcon
         {
@@ -36,8 +37,16 @@ internal sealed class TrayApplicationContext : ApplicationContext
             message => Notify(message, ToolTipIcon.Error));
         displayWatcher.Settled += () => _ = ReapplyAfterDisplayChangeAsync();
         Reload(showSuccess: false);
-        _ = ResumeSlideshowAsync();
+        MigrateStartupCommand();
+        if (launchedAtStartup && DefaultProfile() is { } defaultProfile)
+            _ = ApplyProfileAsync(defaultProfile, rollbackOnFailure: true);
+        else
+            _ = ResumeSlideshowAsync();
     }
+
+    private string? DefaultProfile() => string.IsNullOrWhiteSpace(settings.DefaultProfile)
+        ? null
+        : profiles.FirstOrDefault(p => p.Equals(settings.DefaultProfile, StringComparison.OrdinalIgnoreCase));
 
     private void Reload(bool showSuccess)
     {
@@ -100,6 +109,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             menu.Items.Add(new ToolStripMenuItem("(no profiles loaded)") { Enabled = false });
 
         menu.Items.Add(new ToolStripSeparator());
+        menu.Items.Add(BuildDefaultProfileMenu());
         menu.Items.Add(BuildReapplyMenu());
         var startup =new ToolStripMenuItem("Run at startup") { Checked = IsStartupEnabled(), CheckOnClick = true };
         startup.Click += (_, _) =>
@@ -123,13 +133,30 @@ internal sealed class TrayApplicationContext : ApplicationContext
         previous?.Dispose();
     }
 
+    private ToolStripMenuItem BuildDefaultProfileMenu()
+    {
+        var parent = new ToolStripMenuItem("Default profile at startup");
+        var current = DefaultProfile();
+        foreach (var profile in new string?[] { null }.Concat(profiles))
+        {
+            var item = new ToolStripMenuItem(profile ?? "(None)") { Checked = profile == current };
+            item.Click += (_, _) =>
+            {
+                settings.DefaultProfile = profile;
+                foreach (ToolStripMenuItem sibling in parent.DropDownItems)
+                    sibling.Checked = sibling == item;
+                try { settings.Save(); }
+                catch (Exception ex) { Notify($"Could not save settings: {ex.Message}", ToolTipIcon.Error); }
+            };
+            parent.DropDownItems.Add(item);
+        }
+        parent.Enabled = profiles.Count > 0;
+        return parent;
+    }
+
     private ToolStripMenuItem BuildReapplyMenu()
     {
-        var parent = new ToolStripMenuItem("Re-apply after display change")
-        {
-            ToolTipText = "When Windows switches to one of these profiles by itself (for example when a TV " +
-                          "is turned on), apply it again once the displays settle."
-        };
+        var parent = new ToolStripMenuItem("Re-apply after display change");
         foreach (var profile in profiles)
         {
             var item = new ToolStripMenuItem(profile)
@@ -173,7 +200,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         await ApplyProfileAsync(profile);
     }
 
-    private async Task ApplyProfileAsync(string profile)
+    private async Task ApplyProfileAsync(string profile, bool rollbackOnFailure = false)
     {
         if (!await switchLock.WaitAsync(0))
         {
@@ -186,7 +213,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             slideshowScheduler.Stop();
             notifyIcon.Text = $"DisplayMode - applying {profile}";
             Notify($"Switching to profile '{profile}'...", ToolTipIcon.Info);
-            var result = await DisplayModeClient.ApplyAsync(settings, profile);
+            var result = await DisplayModeClient.ApplyAsync(settings, profile, rollbackOnFailure);
             if (result.ExitCode == 0)
             {
                 if (slideshows.TryGetValue(profile, out var bindings))
@@ -198,6 +225,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
             else
             {
                 Notify(FormatApplyError(profile, result), ToolTipIcon.Error);
+                if (rollbackOnFailure)
+                    _ = ResumeSlideshowAsync();
             }
         }
         catch (Exception ex)
@@ -263,12 +292,31 @@ internal sealed class TrayApplicationContext : ApplicationContext
         return key?.GetValue(StartupValue) is string || key?.GetValue(LegacyStartupValue) is string;
     }
 
+    private static string StartupCommand => $"\"{Application.ExecutablePath}\" {StartupArgument}";
+
+    // Entries written by older versions start the tray without the startup flag, so the
+    // default profile would never be applied at sign-in.
+    private void MigrateStartupCommand()
+    {
+        try
+        {
+            using var key = Registry.CurrentUser.OpenSubKey(StartupKey);
+            var command = key?.GetValue(StartupValue) as string ?? key?.GetValue(LegacyStartupValue) as string;
+            if (command is not null && command != StartupCommand)
+                SetStartup(true);
+        }
+        catch (Exception ex)
+        {
+            Notify($"Could not update startup: {ex.Message}", ToolTipIcon.Error);
+        }
+    }
+
     private static void SetStartup(bool enabled)
     {
         using var key = Registry.CurrentUser.CreateSubKey(StartupKey);
         if (enabled)
         {
-            key.SetValue(StartupValue, $"\"{Application.ExecutablePath}\"");
+            key.SetValue(StartupValue, StartupCommand);
             key.DeleteValue(LegacyStartupValue, throwOnMissingValue: false);
         }
         else
@@ -295,7 +343,10 @@ internal sealed class TrayApplicationContext : ApplicationContext
             ?? lines.FirstOrDefault(line => line.Contains("failed", StringComparison.OrdinalIgnoreCase))
             ?? lines.LastOrDefault();
         var displayWasApplied = lines.Any(line => line.Equals("Success.", StringComparison.OrdinalIgnoreCase));
-        var fallback = displayWasApplied ? string.Empty : " Current display mode was kept.";
+        var rolledBack = lines.Any(line => line.StartsWith("Rolled back", StringComparison.OrdinalIgnoreCase));
+        var fallback = rolledBack ? " Previous display mode was restored."
+            : displayWasApplied ? string.Empty
+            : " Current display mode was kept.";
         detail = detail?.TrimEnd().TrimEnd('.');
 
         return string.IsNullOrWhiteSpace(detail)

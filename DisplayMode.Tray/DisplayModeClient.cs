@@ -53,9 +53,12 @@ internal static class DisplayModeClient
         return result;
     }
 
-    internal static async Task<CommandResult> ApplyAsync(TraySettings settings, string profile)
+    internal static async Task<CommandResult> ApplyAsync(TraySettings settings, string profile,
+        bool rollbackOnFailure = false)
     {
-        return await RunAsync(settings, ["apply", profile]);
+        return await RunAsync(settings, rollbackOnFailure
+            ? ["apply", profile, "--rollback-on-failure"]
+            : ["apply", profile]);
     }
 
     internal static async Task<CommandResult> AdvanceSlideshowAsync(TraySettings settings, string profile,

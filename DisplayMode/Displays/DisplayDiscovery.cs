@@ -81,6 +81,9 @@ internal static class DisplayDiscovery
         return new DisplaySnapshot(monitors);
     }
 
+    internal static (DisplayConfigPathInfo[] Paths, DisplayConfigModeInfo[] Modes) QueryActiveConfig() =>
+        Query(QueryDisplayConfigFlags.OnlyActivePaths);
+
     private static (DisplayConfigPathInfo[] Paths, DisplayConfigModeInfo[] Modes) Query(QueryDisplayConfigFlags flags)
     {
         for (var attempt = 1; attempt <= MaxQueryAttempts; attempt++)

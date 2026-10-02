@@ -20,6 +20,8 @@ internal static class Program
             if (parsed is null)
                 return 2;
 
+            if (parsed.ConfigPath == ConfigurationLoader.DefaultPath)
+                ConfigurationLoader.EnsureDefaultExists();
             var configuration = ConfigurationLoader.Load(parsed.ConfigPath);
             if (parsed.Command.Equals("config-path", StringComparison.OrdinalIgnoreCase))
             {
@@ -105,7 +107,20 @@ internal static class Program
                 return manager.ValidateAndApply(profile.Name, proposal, parsed.DryRun, parsed.ValidateOnly);
             }
 
-            return ApplyWithWakeRecovery(manager, profile, snapshot);
+            if (!parsed.RollbackOnFailure)
+                return ApplyWithWakeRecovery(manager, profile, snapshot);
+
+            var previous = DisplayDiscovery.QueryActiveConfig();
+            int applyResult;
+            try { applyResult = ApplyWithWakeRecovery(manager, profile, snapshot); }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"ERROR: {ex.Message}");
+                applyResult = 1;
+            }
+            if (applyResult != 0 && manager.TopologyChanged)
+                DisplayTopologyManager.Restore(previous.Paths, previous.Modes);
+            return applyResult;
         }
         catch (Win32Exception ex)
         {
@@ -191,6 +206,7 @@ internal static class Program
         var verbose = false;
         var dryRun = false;
         var validateOnly = false;
+        var rollbackOnFailure = false;
         var configPath = ConfigurationLoader.DefaultPath;
 
         for (var i = 0; i < args.Length; i++)
@@ -200,6 +216,7 @@ internal static class Program
                 case "--verbose": verbose = true; break;
                 case "--dry-run": dryRun = true; break;
                 case "--validate-only": validateOnly = true; break;
+                case "--rollback-on-failure": rollbackOnFailure = true; break;
                 case "--config":
                     if (++i >= args.Length)
                     {
@@ -236,14 +253,15 @@ internal static class Program
                        command.Equals("capture", StringComparison.OrdinalIgnoreCase) || command.Equals("profiles", StringComparison.OrdinalIgnoreCase) ||
                        command.Equals("config-check", StringComparison.OrdinalIgnoreCase) || command.Equals("config-path", StringComparison.OrdinalIgnoreCase) ||
                        command.Equals("slideshow-next", StringComparison.OrdinalIgnoreCase);
-        if ((dryRun || validateOnly) && nonApply)
+        if ((dryRun || validateOnly || rollbackOnFailure) && nonApply)
         {
-            Console.Error.WriteLine("--dry-run and --validate-only are valid only when applying a profile.");
+            Console.Error.WriteLine("--dry-run, --validate-only and --rollback-on-failure are valid only when applying a profile.");
             return null;
         }
 
         return new ParsedArguments(command, positional.Count >= 2 ? positional[1] : null,
-            positional.Count == 3 ? positional[2] : null, configPath, verbose, dryRun, validateOnly);
+            positional.Count == 3 ? positional[2] : null, configPath, verbose, dryRun, validateOnly,
+            rollbackOnFailure);
     }
 
     private static void PrintConfiguration(DisplayModeConfiguration configuration)
@@ -261,12 +279,12 @@ internal static class Program
     private static void PrintUsage()
     {
         Console.WriteLine("Usage:");
-        Console.WriteLine("  DisplayMode.exe <profile> [--dry-run | --validate-only] [--verbose]");
-        Console.WriteLine("  DisplayMode.exe apply <profile> [--dry-run | --validate-only] [--verbose]");
+        Console.WriteLine("  DisplayMode.exe <profile> [--dry-run | --validate-only] [--rollback-on-failure] [--verbose]");
+        Console.WriteLine("  DisplayMode.exe apply <profile> [--dry-run | --validate-only] [--rollback-on-failure] [--verbose]");
         Console.WriteLine("  DisplayMode.exe list | status | active-profile | capture | profiles | config-check | config-path");
         Console.WriteLine("  Add --config <path> to use a different profiles.json file.");
     }
 
     private sealed record ParsedArguments(string Command, string? ProfileName, string? MonitorAlias, string ConfigPath,
-        bool Verbose, bool DryRun, bool ValidateOnly);
+        bool Verbose, bool DryRun, bool ValidateOnly, bool RollbackOnFailure);
 }

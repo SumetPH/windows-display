@@ -115,11 +115,15 @@
 
 ทุกคำสั่งรองรับ `--config <path>` และคำสั่ง apply รองรับ `--dry-run`, `--validate-only`, `--verbose`
 
+`--rollback-on-failure` จะจำ topology ที่ active ก่อน apply ไว้ ถ้า apply ไม่สำเร็จหลังจาก Windows เปลี่ยนจอไปแล้ว (เช่น จอไม่ active ครบ หรือตั้ง wallpaper ไม่ได้) จะคืนค่า topology เดิมให้
+
 ## Tray, startup และ hotkey
 
 เปิด `DisplayMode.App.exe` แล้วคลิกขวาที่ icon เพื่อเลือก profile, reload config, เปิด Settings หรือเปิด startup
 
 Slideshow จะทำงานเมื่อ apply profile ผ่าน Tray และเมื่อ Tray เริ่มจาก Windows startup จะตรวจชุดจอที่ active อยู่ก่อน แล้วเริ่ม slideshow เฉพาะ profile ที่ตรงกัน จึงไม่พยายามเปลี่ยนภาพของจอที่ถอดออกไปแล้ว ระบบจะหยุด/สลับชุดภาพอัตโนมัติเมื่อเลือก profile ใหม่ การ reload config จะหยุด slideshow เดิม ให้ apply profile อีกครั้งเพื่อเริ่มด้วยค่าที่ reload แล้ว ตัว Tray เก็บเฉพาะเวลาและรายชื่อจอ ส่วน CLI จะอ่านรายชื่อไฟล์จากโฟลเดอร์เมื่อถึงรอบ จึงไม่โหลดภาพทั้งหมดไว้ในหน่วยความจำ
+
+เมนู **Default profile at startup** ใช้เลือก profile ที่จะ apply อัตโนมัติเมื่อ Tray เริ่มจาก Windows startup (registry จะเรียก `DisplayMode.App.exe --startup`; การเปิด Tray เองจะไม่ apply) โดย apply แบบ `--rollback-on-failure` ถ้าไม่สำเร็จจะกลับไปใช้ topology ล่าสุดก่อน apply แล้วเริ่ม slideshow ของ profile ที่ตรงกับจอที่ active อยู่ เลือก `(None)` เพื่อปิด ค่าที่เลือกเก็บใน `defaultProfile` ของ `tray-settings.json`
 
 เมนู **Re-apply after display change** ใช้แก้กรณีจอติดดับหลัง Windows สลับ topology เอง เช่น เปิด TV แล้ว Windows ดึง layout "TV อย่างเดียว" ที่เคยบันทึกไว้กลับมาใช้ขณะที่ TV ยังไม่พร้อม ติ๊ก profile ที่ต้องการไว้ เมื่อจอเปลี่ยนแล้วนิ่งไปประมาณ 4 วินาที และ topology ที่ active ตรงกับ profile นั้น Tray จะ apply profile นั้นซ้ำให้หนึ่งครั้ง การเปลี่ยนจอที่เกิดจากการ apply ของ Tray เองจะไม่ถูกนับ จึงไม่วนซ้ำ ค่าที่เลือกเก็บใน `reapplyOnDisplayChange` ของ `tray-settings.json`
 
@@ -145,23 +149,18 @@ cache เก็บที่ `%LOCALAPPDATA%\DisplayMode\target-timings.json` แ
 
 ## Build และ publish
 
-Repository นี้มี .NET SDK แบบ local อยู่ใน `.dotnet-sdk` จึง build ได้แม้เครื่องไม่มี SDK ใน `PATH` ใช้ script เพื่อเตรียม environment ให้อัตโนมัติ:
+Repository นี้มี .NET SDK แบบ local อยู่ใน `.dotnet-sdk` จึง build ได้แม้เครื่องไม่มี SDK ใน `PATH` ดับเบิลคลิกไฟล์ `.cmd` หรือรันจาก PowerShell/CMD ได้เลย ตัว wrapper จะ bypass Execution Policy เฉพาะ process นี้ โดยไม่เปลี่ยนค่าของเครื่อง:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\build.ps1
+.\build.cmd                        # Release build
+.\build.cmd -Configuration Debug   # Debug build
+.\publish.cmd                      # self-contained release ไปที่ artifacts\publish
+.\publish.cmd -Run                 # publish แล้วเปิด Tray ให้ทันที
 ```
 
-ต้องการ Debug build ให้เพิ่ม `-Configuration Debug`
+ถ้า Tray ที่รันจาก `artifacts\publish` เปิดอยู่ `publish.cmd` จะปิดให้ก่อน (Windows ล็อกไฟล์ exe ระหว่างรัน) แล้วเปิดกลับมาหลัง publish เสร็จ ถ้า build หรือ publish ล้มเหลว หน้าต่างจะค้างไว้ให้อ่าน error
 
-สร้าง self-contained release รวมไว้ที่ `artifacts\publish` โดย bypass Execution Policy เฉพาะ process นี้:
-
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\publish.ps1
-```
-
-คำสั่งนี้ไม่เปลี่ยน Execution Policy ของเครื่อง หากติดตั้ง .NET 8 SDK ไว้ใน `PATH` แล้วจึงสามารถใช้ `dotnet build ...` แบบสั้นได้
-
-ถ้าแอปกำลังรันอยู่ ให้ Exit ก่อน publish เพราะ Windows จะล็อก `DisplayMode.App.exe`
+หากติดตั้ง .NET 8 SDK ไว้ใน `PATH` แล้วจึงสามารถใช้ `dotnet build ...` แบบสั้นได้
 
 ## โครงสร้างโปรเจกต์
 
@@ -171,8 +170,8 @@ DisplayMode/             CLI, config models, CCD discovery/topology, timing แ�
 DisplayMode.Tray/        WinForms tray UI, settings, startup และ hotkey
 assets/                  PNG ต้นฉบับและ ICO ของโปรแกรม
 tools/CreateIcon.ps1     สร้าง ICO หลายขนาดจาก PNG
-publish.ps1              publish CLI และ Tray ไปยังโฟลเดอร์เดียว
-build.ps1                restore และ build ทั้งสองโปรเจกต์ด้วย local SDK
+publish.ps1/.cmd         publish CLI และ Tray ไปยังโฟลเดอร์เดียว
+build.ps1/.cmd           restore และ build ทั้งสองโปรเจกต์ด้วย local SDK
 artifacts/publish/       release ที่พร้อมใช้งาน
 ```
 

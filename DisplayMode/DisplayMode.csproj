@@ -12,7 +12,6 @@
     <ApplicationIcon>..\assets\displaymode.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
-    <None Update="profiles.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <None Update="profiles.example.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

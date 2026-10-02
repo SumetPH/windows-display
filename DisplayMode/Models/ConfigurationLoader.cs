@@ -6,7 +6,28 @@ namespace DisplayMode.Models;
 
 internal static class ConfigurationLoader
 {
-    internal static string DefaultPath => Path.Combine(AppContext.BaseDirectory, "profiles.json");
+    // The live config sits outside the program folder so that publishing a new build,
+    // which rewrites that folder, can never replace or remove the user's profiles.
+    internal static string DefaultPath => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DisplayMode", "profiles.json");
+
+    /// <summary>
+    /// Creates the default config on first run from a profiles.json left next to the
+    /// executable by older versions, or from the bundled example.
+    /// </summary>
+    internal static void EnsureDefaultExists()
+    {
+        if (File.Exists(DefaultPath))
+            return;
+        var source = new[] { "profiles.json", "profiles.example.json" }
+            .Select(name => Path.Combine(AppContext.BaseDirectory, name))
+            .FirstOrDefault(File.Exists);
+        if (source is null)
+            return;
+        Directory.CreateDirectory(Path.GetDirectoryName(DefaultPath)!);
+        File.Copy(source, DefaultPath);
+        Console.WriteLine($"Created {DefaultPath} from {source}.");
+    }
 
     internal static DisplayModeConfiguration Load(string path)
     {
