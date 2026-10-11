@@ -1,0 +1,21 @@
+<Project>
+  <!-- Shared by DisplayMode (CLI) and DisplayMode.Tray. Project files keep only what differs. -->
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <PlatformTarget>x64</PlatformTarget>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <ApplicationIcon>$(MSBuildThisFileDirectory)assets\displaymode.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
+
+  <!-- Shown in the exe's Properties > Details on Windows. -->
+  <PropertyGroup>
+    <Version>1.0.0</Version>
+    <Product>DisplayMode</Product>
+    <Company>SumetPH</Company>
+    <Authors>SumetPH</Authors>
+    <Copyright>Copyright © SumetPH</Copyright>
+  </PropertyGroup>
+</Project>

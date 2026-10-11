@@ -1,16 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net8.0-windows</TargetFramework>
-    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
-    <PlatformTarget>x64</PlatformTarget>
     <UseWindowsForms>true</UseWindowsForms>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
+    <!-- WinForms reads DPI mode from here via ApplicationConfiguration.Initialize(), not from app.manifest. -->
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <AssemblyName>DisplayMode.App</AssemblyName>
     <RootNamespace>DisplayMode.Tray</RootNamespace>
     <AssemblyTitle>DisplayMode</AssemblyTitle>
-    <Product>DisplayMode</Product>
-    <ApplicationIcon>..\assets\displaymode.ico</ApplicationIcon>
   </PropertyGroup>
 </Project>

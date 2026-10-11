@@ -166,14 +166,20 @@ Repository นี้มี .NET SDK แบบ local อยู่ใน `.dotnet-
 
 ```text
 DisplayMode.sln
+Directory.Build.props    property ร่วมของทั้งสองโปรเจกต์ (TFM, RID, icon, manifest, version/company)
+global.json              pin .NET SDK 8.0.424
 DisplayMode/             CLI, config models, CCD discovery/topology, timing และ wallpaper
 DisplayMode.Tray/        WinForms tray UI, settings, startup และ hotkey
+*/app.manifest           asInvoker, รองรับ Windows 10/11, PerMonitorV2 DPI, long path
 assets/                  PNG ต้นฉบับและ ICO ของโปรแกรม
 tools/CreateIcon.ps1     สร้าง ICO หลายขนาดจาก PNG
 publish.ps1/.cmd         publish CLI และ Tray ไปยังโฟลเดอร์เดียว
 build.ps1/.cmd           restore และ build ทั้งสองโปรเจกต์ด้วย local SDK
 artifacts/publish/       release ที่พร้อมใช้งาน
+AGENTS.md                แนวทางสำหรับ AI agent (CLAUDE.md อ้างถึงไฟล์นี้)
 ```
+
+`profiles.json` เป็น config ส่วนตัวจึงไม่เก็บใน repository (อยู่ใน `.gitignore`) ให้เริ่มจาก `DisplayMode/profiles.example.json`
 
 การแยกแบบนี้ตั้งใจให้ CLI เป็นเจ้าของ logic การสลับจอทั้งหมด ส่วน Tray เป็น UI บาง ๆ ที่เรียก CLI ทำให้ทดสอบและดูแลแต่ละส่วนได้แยกกัน
 

@@ -9,3 +9,4 @@ artifacts/
 .appdata/
 .localappdata/
 dotnet-install.ps1
+profiles.json

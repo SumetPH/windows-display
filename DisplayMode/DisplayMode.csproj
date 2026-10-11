@@ -1,15 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net8.0-windows</TargetFramework>
-    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
-    <PlatformTarget>x64</PlatformTarget>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
     <AssemblyName>DisplayMode</AssemblyName>
     <RootNamespace>DisplayMode</RootNamespace>
-    <ApplicationIcon>..\assets\displaymode.ico</ApplicationIcon>
+    <AssemblyTitle>DisplayMode CLI</AssemblyTitle>
   </PropertyGroup>
   <ItemGroup>
     <None Update="profiles.example.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
