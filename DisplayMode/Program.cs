@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Text.Json;
 using DisplayMode.Displays;
 using DisplayMode.Models;
 
@@ -22,7 +23,9 @@ internal static class Program
 
             if (parsed.ConfigPath == ConfigurationLoader.DefaultPath)
                 ConfigurationLoader.EnsureDefaultExists();
-            var configuration = ConfigurationLoader.Load(parsed.ConfigPath);
+            var configuration = IsMonitorListing(parsed.Command)
+                ? LoadForMonitorListing(parsed.ConfigPath)
+                : ConfigurationLoader.Load(parsed.ConfigPath);
             if (parsed.Command.Equals("config-path", StringComparison.OrdinalIgnoreCase))
             {
                 Console.WriteLine(configuration.Path);
@@ -133,6 +136,27 @@ internal static class Program
             Console.Error.WriteLine($"ERROR: {ex.Message}");
             Console.Error.WriteLine("No further display operation was attempted.");
             return 1;
+        }
+    }
+
+    private static bool IsMonitorListing(string command) =>
+        command.Equals("list", StringComparison.OrdinalIgnoreCase) ||
+        command.Equals("status", StringComparison.OrdinalIgnoreCase);
+
+    // Listing monitors is how users find the match strings to write a config, so an empty
+    // or broken config must not block it; aliases are only shown when the config is valid.
+    private static DisplayModeConfiguration LoadForMonitorListing(string path)
+    {
+        try
+        {
+            return ConfigurationLoader.Load(path);
+        }
+        catch (Exception ex) when (ex is InvalidDataException or JsonException or FileNotFoundException)
+        {
+            Console.Error.WriteLine($"WARNING: Configuration ignored, monitor aliases will not be shown: {ex.Message}");
+            return new DisplayModeConfiguration(Path.GetFullPath(path),
+                new Dictionary<string, MonitorDefinition>(), new Dictionary<string, DisplayProfile>(),
+                AllowUnmanagedTargets: false);
         }
     }
 

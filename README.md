@@ -9,7 +9,7 @@
 | `DisplayMode.exe` | ค้นหาจอ ตรวจ config และสลับ profile ผ่าน Windows CCD API |
 | `DisplayMode.App.exe` | ทำงานเบื้องหลัง มี tray menu, startup และ global hotkey |
 | `profiles.json` | config ที่โปรแกรมใช้งานจริง |
-| `profiles.example.json` | template สำหรับสร้าง config ใหม่ |
+| `profiles.example.json` | config เริ่มต้นที่ถูกคัดลอกไปเป็น `profiles.json` เมื่อติดตั้งใหม่ |
 
 ต้องใช้ Windows 11 x64 และ local interactive session ตัว publish เป็น self-contained จึงไม่ต้องติดตั้ง .NET เพิ่ม
 
@@ -20,6 +20,8 @@
 ```powershell
 .\DisplayMode.exe list
 ```
+
+`list` และ `status` ใช้ได้แม้ `profiles.json` ยังว่างหรือไม่ถูกต้อง (จะแสดง warning และไม่แสดง alias ของจอ)
 
 นำ Hardware ID จากผลลัพธ์ เช่น `DELA274` ไปใส่ใน `profiles.json` จากนั้นตรวจและทดลองโดยยังไม่เปลี่ยนจอ:
 
@@ -105,7 +107,7 @@
 
 | คำสั่ง | การทำงาน |
 |---|---|
-| `DisplayMode.exe list` | แสดงจอทั้งหมด รวมจอ inactive |
+| `DisplayMode.exe list` | แสดงจอทั้งหมด รวมจอ inactive (ไม่ต้องมี config ที่ถูกต้อง) |
 | `DisplayMode.exe status` | แสดง topology ที่ active |
 | `DisplayMode.exe profiles` | แสดง profile จาก config |
 | `DisplayMode.exe config-check` | ตรวจ JSON, alias, layout และ wallpaper path |
@@ -127,7 +129,7 @@ Slideshow จะทำงานเมื่อ apply profile ผ่าน Tray �
 
 เมนู **Re-apply after display change** ใช้แก้กรณีจอติดดับหลัง Windows สลับ topology เอง เช่น เปิด TV แล้ว Windows ดึง layout "TV อย่างเดียว" ที่เคยบันทึกไว้กลับมาใช้ขณะที่ TV ยังไม่พร้อม ติ๊ก profile ที่ต้องการไว้ เมื่อจอเปลี่ยนแล้วนิ่งไปประมาณ 4 วินาที และ topology ที่ active ตรงกับ profile นั้น Tray จะ apply profile นั้นซ้ำให้หนึ่งครั้ง การเปลี่ยนจอที่เกิดจากการ apply ของ Tray เองจะไม่ถูกนับ จึงไม่วนซ้ำ ค่าที่เลือกเก็บใน `reapplyOnDisplayChange` ของ `tray-settings.json`
 
-ดับเบิลคลิก icon เพื่อแก้ path และ global hotkey เช่น `Ctrl+Alt+3` หรือ `Win+Alt+G` hotkey ต้องมี modifier อย่างน้อยหนึ่งตัว การสลับที่เริ่มจาก Tray จะเรียก CLI แบบซ่อน console และป้องกันการสลับซ้อนกัน
+ดับเบิลคลิก icon เพื่อแก้ path และ global hotkey เช่น `Ctrl+Alt+3` หรือ `Win+Alt+G` hotkey ต้องมี modifier อย่างน้อยหนึ่งตัว ค่าเริ่มต้นเมื่อติดตั้งใหม่ (ยังไม่มี `tray-settings.json`) คือ `Alt+1` = Extend, `Alt+2` = TV, `Alt+3` = Main ตาม profile ใน `profiles.example.json` การสลับที่เริ่มจาก Tray จะเรียก CLI แบบซ่อน console และป้องกันการสลับซ้อนกัน
 
 ค่าของ Tray เก็บที่:
 

@@ -2,11 +2,12 @@
   "schemaVersion": 1,
   "allowUnmanagedTargets": false,
 
-  // Run "DisplayMode.exe list" and replace each match value with a unique
-  // Hardware ID or Device Path substring reported for the physical monitor.
+  // Bundled as the first-run config. Run "DisplayMode.exe list" and adjust each
+  // match value if the monitors differ. The Tray's default hotkeys use these
+  // profile names, so keep them in sync with TraySettings when renaming.
   "monitors": {
     "main": {
-      "match": "DELA274",
+      "match": "DELL S2725QC",
       "width": 3840,
       "height": 2160,
       "refreshHz": 120,
@@ -14,60 +15,63 @@
       "x": 0,
       "y": 0
     },
-    "side": {
-      "match": "GSM5BD2",
-      "width": 1440,
-      "height": 2560,
-      "refreshHz": 120,
-      "rotation": "portrait",
-      "x": -1440,
-      "y": 0
-    },
     "tv": {
-      "match": "HEC002F",
+      "match": "HISENSE",
       "width": 3840,
       "height": 2160,
       "refreshHz": 60,
       "rotation": "landscape",
       "x": 0,
       "y": 0
+    },
+    "extend": {
+      "match": "LG ULTRAGEAR",
+      "width": 1440,
+      "height": 2560,
+      "refreshHz": 119.998,
+      "rotation": "portrait",
+      "x": -1440,
+      "y": 0
     }
   },
-
   "profiles": {
-    "Main Only": {
+    "Extend": {
       "monitors": [
         {
           "monitor": "main",
           "primary": true,
-          "wallpaperFolder": "%USERPROFILE%\\Pictures\\Wallpapers\\Main",
+          "wallpaperFolder": "D:\\Images\\WuWa Wallpaper Official\\1",
+          "slideshowInterval": 300,
+          "slideshowOrder": "random"
+        },
+        {
+          "monitor": "extend",
+          "primary": false,
+          "wallpaperFolder": "D:\\Images\\WuWa Wallpaper Official\\2",
           "slideshowInterval": 300,
           "slideshowOrder": "random"
         }
       ]
     },
-
-    "TV Only": {
+    "TV": {
       "monitors": [
         {
           "monitor": "tv",
           "primary": true,
-          "wallpaper": "D:\\Wallpapers\\tv.jpg"
+          "wallpaperFolder": "D:\\Images\\WuWa Wallpaper Official\\1",
+          "slideshowInterval": 300,
+          "slideshowOrder": "random"
         }
       ]
     },
-
-    "Dual Work": {
+    "Main": {
       "monitors": [
         {
           "monitor": "main",
           "primary": true,
-          "wallpaper": "%USERPROFILE%\\Pictures\\Wallpapers\\work-main.jpg"
-        },
-        {
-          "monitor": "side",
-          "primary": false,
-          "wallpaper": "%USERPROFILE%\\Pictures\\Wallpapers\\work-side.jpg"
+          "wallpaperFolder": "D:\\Images\\WuWa Wallpaper Official\\1",
+          "slideshowInterval": 300,
+          "slideshowOrder": "random"
         }
       ]
     }

@@ -6,11 +6,12 @@ internal sealed class TraySettings
 {
     public string DisplayModePath { get; set; } = Path.Combine(AppContext.BaseDirectory, "DisplayMode.exe");
     public string ConfigPath { get; set; } = DefaultConfigPath;
+    // Names follow the profile order in the bundled profiles.example.json.
     public List<HotKeyBinding> HotKeys { get; set; } =
     [
-        new() { Profile = "1", Shortcut = "Alt+Shift+1" },
-        new() { Profile = "2", Shortcut = "Alt+Shift+2" },
-        new() { Profile = "3", Shortcut = "Alt+Shift+3" }
+        new() { Profile = "Extend", Shortcut = "Alt+1" },
+        new() { Profile = "TV", Shortcut = "Alt+2" },
+        new() { Profile = "Main", Shortcut = "Alt+3" }
     ];
     public List<string> ReapplyOnDisplayChange { get; set; } = [];
     public string? DefaultProfile { get; set; }
